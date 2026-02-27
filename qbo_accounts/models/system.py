@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import Field
 
-from .base import QBOBaseModel, QBOEntity, ReferenceType
+from .base import QBOBaseModel, QBOEntity
 
 
 # ── Budget (query only) ───────────────────────────────────────────────────

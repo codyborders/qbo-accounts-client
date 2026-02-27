@@ -5,6 +5,10 @@ from __future__ import annotations
 import re
 from typing import Any, Callable, Iterator
 
+_PAGINATION_CLAUSE_RE = re.compile(
+    r"\s+(STARTPOSITION|MAXRESULTS)\s+\d+", re.IGNORECASE
+)
+
 
 def auto_paginate_query(
     execute_query: Callable[[str], dict[str, Any]],
@@ -24,12 +28,7 @@ def auto_paginate_query(
         page_size: Number of items per page request.
     """
     # Strip any existing pagination clauses from the query
-    cleaned = re.sub(
-        r"\s+(STARTPOSITION|MAXRESULTS)\s+\d+",
-        "",
-        base_query,
-        flags=re.IGNORECASE,
-    ).strip()
+    cleaned = _PAGINATION_CLAUSE_RE.sub("", base_query).strip()
 
     start = 1
     while True:

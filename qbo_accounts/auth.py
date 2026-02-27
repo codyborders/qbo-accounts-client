@@ -31,10 +31,7 @@ class BearerAuth(AuthHandler):
 
 
 class OAuth2Auth(AuthHandler):
-    """OAuth2 authentication with automatic token refresh.
-
-    Uses Intuit's token endpoint to refresh expired access tokens.
-    """
+    """OAuth2 authentication with automatic token refresh."""
 
     def __init__(
         self,
@@ -44,27 +41,27 @@ class OAuth2Auth(AuthHandler):
         refresh_token: str,
         token_url: str = INTUIT_TOKEN_URL,
     ) -> None:
-        self.client_id = client_id
-        self.client_secret = client_secret
+        self._client_id = client_id
+        self._client_secret = client_secret
         self.access_token = access_token
         self.refresh_token = refresh_token
-        self.token_url = token_url
+        if not token_url.startswith("https://"):
+            raise ValueError("token_url must use https")
+        self._token_url = token_url
+        self._http_client = httpx.Client()
 
     def apply(self, request: httpx.Request) -> httpx.Request:
         request.headers["Authorization"] = f"Bearer {self.access_token}"
         return request
 
     def refresh(self) -> dict[str, Any]:
-        """Refresh the access token using the refresh token.
-
-        Returns the full token response dict and updates internal state.
-        """
+        """Refresh the access token using the refresh token."""
         credentials = base64.b64encode(
-            f"{self.client_id}:{self.client_secret}".encode()
+            f"{self._client_id}:{self._client_secret}".encode()
         ).decode()
 
-        response = httpx.post(
-            self.token_url,
+        response = self._http_client.post(
+            self._token_url,
             headers={
                 "Authorization": f"Basic {credentials}",
                 "Content-Type": "application/x-www-form-urlencoded",

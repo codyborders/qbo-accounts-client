@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any
 
-import httpx
 import pytest
 
 from qbo_accounts.auth import BearerAuth
@@ -53,22 +52,3 @@ def sample_query_response(sample_account: dict[str, Any]) -> dict[str, Any]:
             "totalCount": 1,
         },
     }
-
-
-@pytest.fixture
-def mock_response_factory() -> Callable[..., httpx.Response]:
-    """Factory for building mock httpx.Response objects."""
-
-    def _make(
-        status_code: int = 200,
-        json_data: dict[str, Any] | None = None,
-        headers: dict[str, str] | None = None,
-    ) -> httpx.Response:
-        return httpx.Response(
-            status_code=status_code,
-            json=json_data or {},
-            headers=headers or {},
-            request=httpx.Request("GET", f"{BASE_URL}/v3/company/{REALM_ID}/test"),
-        )
-
-    return _make

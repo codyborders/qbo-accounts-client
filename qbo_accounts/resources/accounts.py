@@ -11,4 +11,3 @@ class AccountsResource(NameListResource[Account, AccountCreate, AccountUpdate]):
 
     ENTITY = "account"
     ENTITY_KEY = "Account"
-    QUERY_ENTITY = "Account"

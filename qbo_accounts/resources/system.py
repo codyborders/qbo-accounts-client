@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from ..models.base import GenericQueryResponse, QBOBaseModel
+from ..models.base import GenericQueryResponse
+from .base import _validate_query_param
 from ..models.system import (
     Budget,
     CompanyInfo, CompanyInfoUpdate,
@@ -36,8 +37,10 @@ class _SystemResourceBase:
         """Build and execute a SQL-like query, returning a generic response."""
         sql = f"SELECT * FROM {query_entity}"
         if where:
+            _validate_query_param(where, "where")
             sql += f" WHERE {where}"
         if order_by:
+            _validate_query_param(order_by, "order_by")
             sql += f" ORDERBY {order_by}"
         sql += f" STARTPOSITION {start_position} MAXRESULTS {max_results}"
         path = self._client._build_path("query")

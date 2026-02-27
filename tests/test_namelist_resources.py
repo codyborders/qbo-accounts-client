@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import pytest
 
-from qbo_accounts.client import QBOClient
-from qbo_accounts.auth import BearerAuth
 from tests.constants import BASE_URL, REALM_ID
 
 
@@ -24,12 +22,6 @@ NAMELIST_ENTITIES = [
     ("tax_codes", "taxcode", "TaxCode", {"Name": "TAX"}),
     ("tax_rates", "taxrate", "TaxRate", {"Name": "StateTax", "RateValue": 5}),
 ]
-
-
-@pytest.fixture
-def client():
-    auth = BearerAuth(access_token="test-token")
-    return QBOClient(realm_id=REALM_ID, auth=auth, base_url=BASE_URL)
 
 
 class TestNameListRead:

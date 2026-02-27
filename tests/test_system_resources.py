@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
-from qbo_accounts.client import QBOClient
-from qbo_accounts.auth import BearerAuth
 from qbo_accounts.models.system import (
     CompanyInfoUpdate,
     ExchangeRateUpdate,
@@ -13,12 +9,6 @@ from qbo_accounts.models.system import (
     TaxServiceCreate,
 )
 from tests.constants import BASE_URL, REALM_ID
-
-
-@pytest.fixture
-def client():
-    auth = BearerAuth(access_token="test-token")
-    return QBOClient(realm_id=REALM_ID, auth=auth, base_url=BASE_URL)
 
 
 class TestBudgetsResource:

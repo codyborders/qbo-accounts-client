@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import typing
 from typing import TYPE_CHECKING, Generic, Iterator, TypeVar
 
@@ -14,6 +15,15 @@ if TYPE_CHECKING:
 TEntity = TypeVar("TEntity", bound=QBOEntity)
 TCreate = TypeVar("TCreate", bound=QBOBaseModel)
 TUpdate = TypeVar("TUpdate", bound=QBOBaseModel)
+
+_DANGEROUS_PATTERN = re.compile(r"(;|--|[/][*]|[*][/])")
+
+
+def _validate_query_param(value: str, param_name: str) -> str:
+    """Reject query parameters containing dangerous SQL-like characters."""
+    if _DANGEROUS_PATTERN.search(value):
+        raise ValueError(f"Invalid characters in {param_name}: {value!r}")
+    return value
 
 
 class BaseResource(Generic[TEntity, TCreate, TUpdate]):
@@ -29,6 +39,11 @@ class BaseResource(Generic[TEntity, TCreate, TUpdate]):
     ENTITY_KEY: str
     QUERY_ENTITY: str
 
+    def __init_subclass__(cls, **kwargs: object) -> None:
+        super().__init_subclass__(**kwargs)
+        if "QUERY_ENTITY" not in cls.__dict__ and "ENTITY_KEY" in cls.__dict__:
+            cls.QUERY_ENTITY = cls.ENTITY_KEY
+
     def __init__(self, client: QBOClient) -> None:
         self._client = client
 
@@ -38,9 +53,14 @@ class BaseResource(Generic[TEntity, TCreate, TUpdate]):
         if not hasattr(cls, cache_attr):
             for base in getattr(cls, "__orig_bases__", ()):
                 args = typing.get_args(base)
-                if len(args) > index:
+                if len(args) > index and not isinstance(args[index], TypeVar):
                     setattr(cls, cache_attr, args[index])
                     break
+            else:
+                raise TypeError(
+                    f"{cls.__name__} must be parameterized with concrete "
+                    f"generic arguments (e.g. MyResource[Entity, Create, Update])"
+                )
         return getattr(cls, cache_attr)
 
     @property
@@ -81,8 +101,10 @@ class BaseResource(Generic[TEntity, TCreate, TUpdate]):
         """Build a SQL-like query string."""
         sql = f"SELECT * FROM {self.QUERY_ENTITY}"
         if where:
+            _validate_query_param(where, "where")
             sql += f" WHERE {where}"
         if order_by:
+            _validate_query_param(order_by, "order_by")
             sql += f" ORDERBY {order_by}"
         return sql
 

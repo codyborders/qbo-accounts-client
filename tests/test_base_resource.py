@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Any
-
+import pytest
 from pytest_httpx import HTTPXMock
 
 from qbo_accounts import QBOClient
 from qbo_accounts.models.base import QBOBaseModel, QBOEntity
+from qbo_accounts.resources.base import (
+    BaseResource,
+    NameListResource,
+    TransactionResource,
+    VoidableTransactionResource,
+)
 from pydantic import Field
 
 
@@ -33,18 +38,26 @@ class FakeUpdate(QBOBaseModel):
     active: bool | None = Field(default=None, alias="Active")
 
 
+class FakeResource(NameListResource[FakeEntity, FakeCreate, FakeUpdate]):
+    ENTITY = "fake"
+    ENTITY_KEY = "Fake"
+
+
+class FakeTxnResource(TransactionResource[FakeEntity, FakeCreate, FakeUpdate]):
+    ENTITY = "fake"
+    ENTITY_KEY = "Fake"
+
+
+class FakeVoidResource(VoidableTransactionResource[FakeEntity, FakeCreate, FakeUpdate]):
+    ENTITY = "fake"
+    ENTITY_KEY = "Fake"
+
+
 class TestBaseResourceCreate:
     def test_create_returns_entity(
         self, client: QBOClient, httpx_mock: HTTPXMock,
     ):
         """BaseResource.create should POST and return a parsed entity."""
-        from qbo_accounts.resources.base import NameListResource
-
-        class FakeResource(NameListResource[FakeEntity, FakeCreate, FakeUpdate]):
-            ENTITY = "fake"
-            ENTITY_KEY = "Fake"
-            QUERY_ENTITY = "Fake"
-
         httpx_mock.add_response(
             status_code=200,
             json={"Fake": {"Id": "1", "Name": "Test", "SyncToken": "0"}},
@@ -63,13 +76,6 @@ class TestBaseResourceRead:
         self, client: QBOClient, httpx_mock: HTTPXMock,
     ):
         """BaseResource.read should GET by ID and return a parsed entity."""
-        from qbo_accounts.resources.base import NameListResource
-
-        class FakeResource(NameListResource[FakeEntity, FakeCreate, FakeUpdate]):
-            ENTITY = "fake"
-            ENTITY_KEY = "Fake"
-            QUERY_ENTITY = "Fake"
-
         httpx_mock.add_response(
             status_code=200,
             json={"Fake": {"Id": "99", "Name": "Read Test", "SyncToken": "2"}},
@@ -88,13 +94,6 @@ class TestBaseResourceUpdate:
         self, client: QBOClient, httpx_mock: HTTPXMock,
     ):
         """BaseResource.update should POST and return the updated entity."""
-        from qbo_accounts.resources.base import NameListResource
-
-        class FakeResource(NameListResource[FakeEntity, FakeCreate, FakeUpdate]):
-            ENTITY = "fake"
-            ENTITY_KEY = "Fake"
-            QUERY_ENTITY = "Fake"
-
         httpx_mock.add_response(
             status_code=200,
             json={"Fake": {"Id": "1", "Name": "Updated", "SyncToken": "1"}},
@@ -108,18 +107,32 @@ class TestBaseResourceUpdate:
         assert result.sync_token == "1"
 
 
+class TestBaseResourceQueryEntityDefault:
+    def test_query_entity_defaults_to_entity_key(self):
+        """QUERY_ENTITY should default to ENTITY_KEY when not explicitly set."""
+
+        class MinimalResource(NameListResource[FakeEntity, FakeCreate, FakeUpdate]):
+            ENTITY = "minimal"
+            ENTITY_KEY = "Minimal"
+
+        assert MinimalResource.QUERY_ENTITY == "Minimal"
+
+    def test_query_entity_can_be_overridden(self):
+        """Explicit QUERY_ENTITY should override the default."""
+
+        class OverriddenResource(NameListResource[FakeEntity, FakeCreate, FakeUpdate]):
+            ENTITY = "custom"
+            ENTITY_KEY = "Custom"
+            QUERY_ENTITY = "DifferentName"
+
+        assert OverriddenResource.QUERY_ENTITY == "DifferentName"
+
+
 class TestBaseResourceQuery:
     def test_query_returns_generic_response(
         self, client: QBOClient, httpx_mock: HTTPXMock,
     ):
         """BaseResource.query should return a GenericQueryResponse with items."""
-        from qbo_accounts.resources.base import NameListResource
-
-        class FakeResource(NameListResource[FakeEntity, FakeCreate, FakeUpdate]):
-            ENTITY = "fake"
-            ENTITY_KEY = "Fake"
-            QUERY_ENTITY = "Fake"
-
         httpx_mock.add_response(
             status_code=200,
             json={
@@ -147,13 +160,6 @@ class TestNameListResourceDeactivate:
         self, client: QBOClient, httpx_mock: HTTPXMock,
     ):
         """NameListResource.deactivate should POST with Active=false."""
-        from qbo_accounts.resources.base import NameListResource
-
-        class FakeResource(NameListResource[FakeEntity, FakeCreate, FakeUpdate]):
-            ENTITY = "fake"
-            ENTITY_KEY = "Fake"
-            QUERY_ENTITY = "Fake"
-
         httpx_mock.add_response(
             status_code=200,
             json={"Fake": {"Id": "5", "Name": "Gone", "Active": False, "SyncToken": "1"}},
@@ -171,13 +177,6 @@ class TestTransactionResourceDelete:
         self, client: QBOClient, httpx_mock: HTTPXMock,
     ):
         """TransactionResource.delete should POST with operation=delete."""
-        from qbo_accounts.resources.base import TransactionResource
-
-        class FakeTxnResource(TransactionResource[FakeEntity, FakeCreate, FakeUpdate]):
-            ENTITY = "fake"
-            ENTITY_KEY = "Fake"
-            QUERY_ENTITY = "Fake"
-
         httpx_mock.add_response(
             status_code=200,
             json={"Fake": {"Id": "10", "status": "Deleted"}},
@@ -194,13 +193,6 @@ class TestVoidableTransactionResourceVoid:
         self, client: QBOClient, httpx_mock: HTTPXMock,
     ):
         """VoidableTransactionResource.void should POST with operation=void."""
-        from qbo_accounts.resources.base import VoidableTransactionResource
-
-        class FakeVoidResource(VoidableTransactionResource[FakeEntity, FakeCreate, FakeUpdate]):
-            ENTITY = "fake"
-            ENTITY_KEY = "Fake"
-            QUERY_ENTITY = "Fake"
-
         httpx_mock.add_response(
             status_code=200,
             json={"Fake": {"Id": "20", "status": "Voided"}},
@@ -210,3 +202,16 @@ class TestVoidableTransactionResourceVoid:
         result = resource.void("20", "0")
 
         assert result["Fake"]["Id"] == "20"
+
+
+class TestResolveGenericArgError:
+    def test_raises_type_error_when_generic_arg_not_found(self):
+        """_resolve_generic_arg should raise TypeError for non-generic subclasses."""
+        from qbo_accounts.resources.base import BaseResource
+
+        class BadResource(BaseResource):
+            ENTITY = "bad"
+            ENTITY_KEY = "Bad"
+
+        with pytest.raises(TypeError, match="BadResource"):
+            BadResource._resolve_generic_arg(0, "_cached_entity_cls")

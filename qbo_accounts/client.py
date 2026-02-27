@@ -136,6 +136,8 @@ class QBOClient:
         base_url: str = PRODUCTION_BASE_URL,
         timeout: float = 30.0,
     ) -> None:
+        if not base_url.startswith("https://"):
+            raise ValueError("base_url must use https")
         self.realm_id = realm_id
         self.auth = auth
         self.base_url = base_url.rstrip("/")
@@ -201,6 +203,7 @@ class QBOClient:
 
         if response.status_code == 429:
             self._rate_limiter.wait_if_needed(dict(response.headers))
+            response = self._send_authenticated(method, path, params, json, headers)
 
         if not response.is_success:
             try:
@@ -220,5 +223,5 @@ class QBOClient:
     def __enter__(self) -> QBOClient:
         return self
 
-    def __exit__(self, *args: Any) -> None:
+    def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: Any) -> None:
         self.close()

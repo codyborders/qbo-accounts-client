@@ -6,6 +6,7 @@ import pytest
 from pytest_httpx import HTTPXMock
 
 from qbo_accounts import QBOClient, BearerAuth
+from qbo_accounts.auth import OAuth2Auth
 from qbo_accounts.exceptions import (
     AuthenticationError,
     ForbiddenError,
@@ -95,11 +96,12 @@ class TestClientErrorHandling:
         with pytest.raises(ValidationError, match="Invalid data"):
             client.request("POST", f"/v3/company/{REALM_ID}/account", json={})
 
-    def test_429_raises_rate_limit_error(
+    def test_429_retries_and_succeeds(
         self, client: QBOClient, httpx_mock: HTTPXMock
     ):
         httpx_mock.add_response(
             status_code=429,
+            headers={"Retry-After": "0"},
             json={
                 "Fault": {
                     "Error": [{"Message": "Throttled", "Detail": "Rate limit exceeded", "code": "3001"}],
@@ -107,8 +109,12 @@ class TestClientErrorHandling:
                 }
             },
         )
-        with pytest.raises(RateLimitError, match="Throttled"):
-            client.request("GET", f"/v3/company/{REALM_ID}/account/1")
+        httpx_mock.add_response(
+            status_code=200,
+            json={"Account": {"Id": "1", "SyncToken": "0"}},
+        )
+        result = client.request("GET", f"/v3/company/{REALM_ID}/account/1")
+        assert result["Account"]["Id"] == "1"
 
     def test_500_raises_server_error(
         self, client: QBOClient, httpx_mock: HTTPXMock
@@ -131,3 +137,29 @@ class TestClientErrorHandling:
         httpx_mock.add_response(status_code=503, text="Service Unavailable")
         with pytest.raises(ServerError):
             client.request("GET", f"/v3/company/{REALM_ID}/account/1")
+
+
+class TestClientHTTPSEnforcement:
+    def test_http_base_url_rejected(self, auth: BearerAuth):
+        """QBOClient should reject non-HTTPS base URLs."""
+        with pytest.raises(ValueError, match="https"):
+            QBOClient(realm_id=REALM_ID, auth=auth, base_url="http://evil.example.com")
+
+    def test_https_base_url_accepted(self, auth: BearerAuth):
+        """QBOClient should accept HTTPS base URLs."""
+        c = QBOClient(realm_id=REALM_ID, auth=auth, base_url="https://sandbox-quickbooks.api.intuit.com")
+        assert c.base_url == "https://sandbox-quickbooks.api.intuit.com"
+        c.close()
+
+
+class TestOAuth2HTTPSEnforcement:
+    def test_http_token_url_rejected(self):
+        """OAuth2Auth should reject non-HTTPS token URLs."""
+        with pytest.raises(ValueError, match="https"):
+            OAuth2Auth(
+                client_id="id",
+                client_secret="secret",
+                access_token="token",
+                refresh_token="refresh",
+                token_url="http://evil.example.com/token",
+            )
