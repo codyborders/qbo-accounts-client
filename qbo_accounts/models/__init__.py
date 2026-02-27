@@ -1,26 +1,8 @@
-"""QuickBooks Online API client."""
+"""Pydantic models for QuickBooks Online API entities."""
 
-from .auth import AuthHandler, BearerAuth, OAuth2Auth
-from .client import PRODUCTION_BASE_URL, SANDBOX_BASE_URL, QBOClient
-from .exceptions import (
-    AuthenticationError,
-    ForbiddenError,
-    NotFoundError,
-    QBOError,
-    RateLimitError,
-    ServerError,
-    ValidationError,
-)
-from .models import (
-    # Base
-    GenericQueryResponse,
-    MetaData,
-    QBOBaseModel,
-    QBOEntity,
-    ReferenceType,
-    # Accounts
-    Account, AccountCreate, AccountUpdate,
-    # Name-list
+from .accounts import Account, AccountCreate, AccountUpdate
+from .base import GenericQueryResponse, MetaData, QBOBaseModel, QBOEntity, ReferenceType
+from .namelist import (
     Class_, ClassCreate, ClassUpdate,
     CompanyCurrency, CompanyCurrencyCreate, CompanyCurrencyUpdate,
     Customer, CustomerCreate, CustomerUpdate,
@@ -34,7 +16,16 @@ from .models import (
     TaxRate, TaxRateCreate, TaxRateUpdate,
     Term, TermCreate, TermUpdate,
     Vendor, VendorCreate, VendorUpdate,
-    # Transactions
+)
+from .system import (
+    Budget,
+    CompanyInfo, CompanyInfoUpdate,
+    Entitlements,
+    ExchangeRate, ExchangeRateUpdate,
+    Preferences, PreferencesUpdate,
+    TaxServiceCreate,
+)
+from .transactions import (
     Attachable, AttachableCreate, AttachableUpdate,
     Bill, BillCreate, BillUpdate,
     BillPayment, BillPaymentCreate, BillPaymentUpdate,
@@ -51,75 +42,14 @@ from .models import (
     TimeActivity, TimeActivityCreate, TimeActivityUpdate,
     Transfer, TransferCreate, TransferUpdate,
     VendorCredit, VendorCreditCreate, VendorCreditUpdate,
-    # System
-    Budget,
-    CompanyInfo, CompanyInfoUpdate,
-    Entitlements,
-    ExchangeRate, ExchangeRateUpdate,
-    Preferences, PreferencesUpdate,
-    TaxServiceCreate,
-)
-from .resources import (
-    AccountsResource,
-    AttachablesResource,
-    BillPaymentsResource,
-    BillsResource,
-    BudgetsResource,
-    ClassesResource,
-    CompanyCurrenciesResource,
-    CompanyInfoResource,
-    CreditMemosResource,
-    CustomersResource,
-    DepartmentsResource,
-    DepositsResource,
-    EmployeesResource,
-    EntitlementsResource,
-    EstimatesResource,
-    ExchangeRatesResource,
-    InvoicesResource,
-    ItemsResource,
-    JournalCodesResource,
-    JournalEntriesResource,
-    PaymentMethodsResource,
-    PaymentsResource,
-    PreferencesResource,
-    PurchaseOrdersResource,
-    PurchasesResource,
-    RefundReceiptsResource,
-    SalesReceiptsResource,
-    TaxAgenciesResource,
-    TaxCodesResource,
-    TaxRatesResource,
-    TaxServiceResource,
-    TermsResource,
-    TimeActivitiesResource,
-    TransfersResource,
-    VendorCreditsResource,
-    VendorsResource,
 )
 
 __all__ = [
-    # Client
-    "QBOClient",
-    "PRODUCTION_BASE_URL",
-    "SANDBOX_BASE_URL",
-    # Auth
-    "AuthHandler",
-    "BearerAuth",
-    "OAuth2Auth",
-    # Exceptions
-    "QBOError",
-    "AuthenticationError",
-    "ForbiddenError",
-    "NotFoundError",
-    "RateLimitError",
-    "ServerError",
-    "ValidationError",
-    # Base models
-    "QBOBaseModel",
-    "QBOEntity",
+    # Base
     "GenericQueryResponse",
     "MetaData",
+    "QBOBaseModel",
+    "QBOEntity",
     "ReferenceType",
     # Accounts
     "Account", "AccountCreate", "AccountUpdate",
@@ -161,41 +91,4 @@ __all__ = [
     "ExchangeRate", "ExchangeRateUpdate",
     "Preferences", "PreferencesUpdate",
     "TaxServiceCreate",
-    # Resources
-    "AccountsResource",
-    "AttachablesResource",
-    "BillPaymentsResource",
-    "BillsResource",
-    "BudgetsResource",
-    "ClassesResource",
-    "CompanyCurrenciesResource",
-    "CompanyInfoResource",
-    "CreditMemosResource",
-    "CustomersResource",
-    "DepartmentsResource",
-    "DepositsResource",
-    "EmployeesResource",
-    "EntitlementsResource",
-    "EstimatesResource",
-    "ExchangeRatesResource",
-    "InvoicesResource",
-    "ItemsResource",
-    "JournalCodesResource",
-    "JournalEntriesResource",
-    "PaymentMethodsResource",
-    "PaymentsResource",
-    "PreferencesResource",
-    "PurchaseOrdersResource",
-    "PurchasesResource",
-    "RefundReceiptsResource",
-    "SalesReceiptsResource",
-    "TaxAgenciesResource",
-    "TaxCodesResource",
-    "TaxRatesResource",
-    "TaxServiceResource",
-    "TermsResource",
-    "TimeActivitiesResource",
-    "TransfersResource",
-    "VendorCreditsResource",
-    "VendorsResource",
 ]

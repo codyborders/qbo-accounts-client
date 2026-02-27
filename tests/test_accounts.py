@@ -7,7 +7,8 @@ from typing import Any
 from pytest_httpx import HTTPXMock
 
 from qbo_accounts import QBOClient
-from qbo_accounts.models import Account, AccountCreate, AccountUpdate, QueryResponse
+from qbo_accounts.models import Account, AccountCreate, AccountUpdate
+from qbo_accounts.models.base import GenericQueryResponse
 
 
 class TestAccountsCreate:
@@ -61,9 +62,9 @@ class TestAccountsQuery:
         )
         result = client.accounts.query(where="Active = true")
 
-        assert isinstance(result, QueryResponse)
-        assert len(result.accounts) == 1
-        assert result.accounts[0].name == "Test Checking"
+        assert isinstance(result, GenericQueryResponse)
+        assert len(result.items) == 1
+        assert result.items[0]["Name"] == "Test Checking"
 
     def test_query_all_paginates(
         self,
@@ -130,7 +131,7 @@ class TestAccountsDeactivate:
         deactivated = {**sample_account, "Active": False}
         httpx_mock.add_response(status_code=200, json={"Account": deactivated})
 
-        result = client.accounts.deactivate("42", sync_token="0")
+        result = client.accounts.deactivate("42", "0")
 
         assert isinstance(result, Account)
         assert result.active is False
