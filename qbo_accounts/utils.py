@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from email.utils import parsedate_to_datetime
 
 DEFAULT_RETRY_DELAY = 5.0
 MAX_RETRY_AFTER = 300.0
@@ -18,7 +19,12 @@ class RateLimiter:
             try:
                 time.sleep(min(float(retry_after), MAX_RETRY_AFTER))
             except (ValueError, TypeError):
-                time.sleep(DEFAULT_RETRY_DELAY)
+                try:
+                    retry_dt = parsedate_to_datetime(retry_after)
+                    wait = max(0.0, retry_dt.timestamp() - time.time())
+                    time.sleep(min(wait, MAX_RETRY_AFTER))
+                except (ValueError, TypeError):
+                    time.sleep(DEFAULT_RETRY_DELAY)
             return
 
         reset = headers.get("X-RateLimit-Reset") or headers.get("x-ratelimit-reset")

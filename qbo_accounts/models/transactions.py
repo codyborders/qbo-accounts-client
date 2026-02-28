@@ -247,7 +247,7 @@ class PurchaseOrder(QBOEntity):
 class PurchaseOrderCreate(QBOBaseModel):
     vendor_ref: ReferenceType = Field(alias="VendorRef")
     line: list[dict] = Field(alias="Line")
-    ap_account_ref: ReferenceType = Field(alias="APAccountRef")
+    ap_account_ref: ReferenceType | None = Field(default=None, alias="APAccountRef")
     txn_date: str | None = Field(default=None, alias="TxnDate")
 
 

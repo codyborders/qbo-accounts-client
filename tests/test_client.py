@@ -14,6 +14,7 @@ from qbo_accounts.exceptions import (
     RateLimitError,
     ServerError,
     ValidationError,
+    map_status_to_exception,
 )
 
 from tests.constants import BASE_URL, REALM_ID
@@ -139,6 +140,19 @@ class TestClientErrorHandling:
             client.request("GET", f"/v3/company/{REALM_ID}/account/1")
 
 
+class TestMapStatusToExceptionEdgeCases:
+    def test_fault_error_as_dict(self):
+        body = {
+            "Fault": {
+                "Error": {"Message": "Auth failed", "Detail": "Invalid token", "code": "401"},
+                "type": "AuthenticationFault",
+            }
+        }
+        exc = map_status_to_exception(401, body)
+        assert exc.args[0] == "Auth failed"
+        assert exc.detail == "Invalid token"
+
+
 class TestClientHTTPSEnforcement:
     def test_http_base_url_rejected(self, auth: BearerAuth):
         """QBOClient should reject non-HTTPS base URLs."""
@@ -150,6 +164,50 @@ class TestClientHTTPSEnforcement:
         c = QBOClient(realm_id=REALM_ID, auth=auth, base_url="https://sandbox-quickbooks.api.intuit.com")
         assert c.base_url == "https://sandbox-quickbooks.api.intuit.com"
         c.close()
+
+
+class TestOAuth2TokenRefreshAfter429:
+    def test_429_then_401_triggers_refresh(self, httpx_mock):
+        auth = OAuth2Auth(
+            client_id="id", client_secret="secret",
+            access_token="expired", refresh_token="refresh",
+        )
+        client = QBOClient(realm_id=REALM_ID, auth=auth, base_url=BASE_URL)
+        # 1st call: 429 rate limit
+        httpx_mock.add_response(
+            status_code=429,
+            headers={"Retry-After": "0"},
+            json={"Fault": {"Error": [{"Message": "Throttled"}]}},
+        )
+        # 2nd call (retry after 429): 401 expired token
+        httpx_mock.add_response(
+            status_code=401,
+            json={"Fault": {"Error": [{"Message": "Auth failed"}]}},
+        )
+        # 3rd call: token refresh POST
+        httpx_mock.add_response(
+            json={"access_token": "new-token", "refresh_token": "new-refresh"},
+        )
+        # 4th call: success after refresh
+        httpx_mock.add_response(
+            status_code=200,
+            json={"Account": {"Id": "1", "SyncToken": "0"}},
+        )
+        result = client.request("GET", f"/v3/company/{REALM_ID}/account/1")
+        assert result["Account"]["Id"] == "1"
+        assert auth.access_token == "new-token"
+        client.close()
+
+
+class TestResourceCleanup:
+    def test_close_closes_oauth2_http_client(self):
+        auth = OAuth2Auth(
+            client_id="id", client_secret="secret",
+            access_token="tok", refresh_token="ref",
+        )
+        client = QBOClient(realm_id=REALM_ID, auth=auth, base_url=BASE_URL)
+        client.close()
+        assert auth._http_client.is_closed
 
 
 class TestOAuth2HTTPSEnforcement:
