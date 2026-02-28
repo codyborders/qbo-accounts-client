@@ -21,7 +21,7 @@ TRANSACTION_ENTITIES = [
     ("refund_receipts", "refundreceipt", "RefundReceipt", True),
     ("sales_receipts", "salesreceipt", "SalesReceipt", True),
     ("time_activities", "timeactivity", "TimeActivity", False),
-    ("transfers", "transfer", "Transfer", True),
+    ("transfers", "transfer", "Transfer", False),
     ("vendor_credits", "vendorcredit", "VendorCredit", False),
     ("attachables", "attachable", "Attachable", False),
 ]
@@ -72,6 +72,11 @@ class TestTransactionDelete:
         resource = getattr(client, attr)
         result = resource.delete("42", "0")
         assert result[key]["Id"] == "42"
+
+
+class TestTransfersNotVoidable:
+    def test_transfers_has_no_void_method(self, client):
+        assert not hasattr(client.transfers, "void")
 
 
 class TestVoidableTransactionVoid:

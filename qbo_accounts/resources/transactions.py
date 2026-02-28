@@ -88,7 +88,7 @@ class TimeActivitiesResource(TransactionResource[TimeActivity, TimeActivityCreat
     ENTITY_KEY = "TimeActivity"
 
 
-class TransfersResource(VoidableTransactionResource[Transfer, TransferCreate, TransferUpdate]):
+class TransfersResource(TransactionResource[Transfer, TransferCreate, TransferUpdate]):
     ENTITY = "transfer"
     ENTITY_KEY = "Transfer"
 

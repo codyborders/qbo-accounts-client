@@ -87,6 +87,7 @@ class DepartmentUpdate(QBOBaseModel):
     sync_token: str = Field(alias="SyncToken")
     name: str | None = Field(default=None, alias="Name")
     active: bool | None = Field(default=None, alias="Active")
+    parent_ref: ReferenceType | None = Field(default=None, alias="ParentRef")
 
 
 # ── Employee ───────────────────────────────────────────────────────────────

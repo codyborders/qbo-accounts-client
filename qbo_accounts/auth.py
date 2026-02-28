@@ -79,3 +79,7 @@ class OAuth2Auth(AuthHandler):
             self.refresh_token = data["refresh_token"]
 
         return data
+
+    def close(self) -> None:
+        """Close the underlying HTTP client."""
+        self._http_client.close()

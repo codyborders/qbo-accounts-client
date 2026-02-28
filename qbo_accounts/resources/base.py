@@ -105,7 +105,7 @@ class BaseResource(Generic[TEntity, TCreate, TUpdate]):
             sql += f" WHERE {where}"
         if order_by:
             _validate_query_param(order_by, "order_by")
-            sql += f" ORDERBY {order_by}"
+            sql += f" ORDER BY {order_by}"
         return sql
 
     def query(

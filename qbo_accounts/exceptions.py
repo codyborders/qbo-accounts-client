@@ -73,6 +73,8 @@ def map_status_to_exception(status_code: int, body: dict[str, Any] | None = None
     if body and "Fault" in body:
         fault = body["Fault"]
         errors = fault.get("Error", [])
+        if isinstance(errors, dict):
+            errors = [errors]
         if errors:
             first = errors[0]
             message = first.get("Message", message)

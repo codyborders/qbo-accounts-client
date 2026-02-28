@@ -196,13 +196,14 @@ class QBOClient:
 
         response = self._send_authenticated(method, path, params, json, headers)
 
-        # Auto-refresh on 401 if using OAuth2Auth
-        if response.status_code == 401 and isinstance(self.auth, OAuth2Auth):
-            self.auth.refresh()
-            response = self._send_authenticated(method, path, params, json, headers)
-
+        # Handle 429 first (rate limit)
         if response.status_code == 429:
             self._rate_limiter.wait_if_needed(dict(response.headers))
+            response = self._send_authenticated(method, path, params, json, headers)
+
+        # Auto-refresh on 401 (covers both initial 401 and post-429-retry 401)
+        if response.status_code == 401 and isinstance(self.auth, OAuth2Auth):
+            self.auth.refresh()
             response = self._send_authenticated(method, path, params, json, headers)
 
         if not response.is_success:
@@ -217,8 +218,10 @@ class QBOClient:
         return response.json()
 
     def close(self) -> None:
-        """Close the underlying HTTP client."""
+        """Close the underlying HTTP client and auth resources."""
         self._client.close()
+        if isinstance(self.auth, OAuth2Auth):
+            self.auth.close()
 
     def __enter__(self) -> QBOClient:
         return self

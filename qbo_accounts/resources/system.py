@@ -41,7 +41,7 @@ class _SystemResourceBase:
             sql += f" WHERE {where}"
         if order_by:
             _validate_query_param(order_by, "order_by")
-            sql += f" ORDERBY {order_by}"
+            sql += f" ORDER BY {order_by}"
         sql += f" STARTPOSITION {start_position} MAXRESULTS {max_results}"
         path = self._client._build_path("query")
         resp = self._client.request("GET", path, params={"query": sql})

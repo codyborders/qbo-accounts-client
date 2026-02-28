@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from qbo_accounts.models.base import QBOBaseModel
+from qbo_accounts.models.namelist import DepartmentUpdate
+from qbo_accounts.models.transactions import PurchaseOrderCreate
 
 
 class TestQBOBaseModel:
@@ -48,6 +50,19 @@ class TestQBOEntity:
         assert e.id == "42"
         assert e.sync_token == "0"
         assert e.meta_data is not None
+
+
+class TestPurchaseOrderCreateModel:
+    def test_ap_account_ref_is_optional(self):
+        po = PurchaseOrderCreate(vendor_ref={"value": "1"}, line=[{"Amount": 100}])
+        assert po.ap_account_ref is None
+
+
+class TestDepartmentUpdateModel:
+    def test_parent_ref_field_exists(self):
+        dept = DepartmentUpdate(id="1", sync_token="0", parent_ref={"value": "2", "name": "Parent"})
+        data = dept.model_dump(by_alias=True, exclude_none=True)
+        assert data["ParentRef"]["value"] == "2"
 
 
 class TestGenericQueryResponse:
