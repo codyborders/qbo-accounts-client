@@ -2,20 +2,40 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 import os
 import sys
-from typing import Any, NoReturn
+from typing import Any, Iterator, NoReturn
+from urllib.parse import urlparse
 
 import click
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv, set_key
 from pydantic import BaseModel
 
 from .auth import OAuth2Auth
 from .client import SANDBOX_BASE_URL, QBOClient, _RESOURCE_REGISTRY
-from .resources.base import NameListResource, TransactionResource, VoidableTransactionResource
+from .resources.base import (
+    BaseResource,
+    NameListResource,
+    TransactionResource,
+    VoidableTransactionResource,
+)
 
 _REQUIRED_ENV_VARS = ("QBO_REALM_ID", "QBO_CLIENT_ID", "QBO_CLIENT_SECRET", "QBO_REFRESH_TOKEN")
+
+_ALLOWED_HOSTS = frozenset({
+    "sandbox-quickbooks.api.intuit.com",
+    "quickbooks.api.intuit.com",
+})
+
+
+def _persist_tokens(access_token: str, refresh_token: str) -> None:
+    """Write refreshed tokens back to the .env file."""
+    dotenv_path = find_dotenv()
+    if dotenv_path:
+        set_key(dotenv_path, "QBO_ACCESS_TOKEN", access_token)
+        set_key(dotenv_path, "QBO_REFRESH_TOKEN", refresh_token)
 
 
 def _make_client() -> QBOClient:
@@ -25,16 +45,22 @@ def _make_client() -> QBOClient:
     if missing:
         _error(f"Missing required env vars: {', '.join(missing)}")
 
+    base_url = os.environ.get("QBO_BASE_URL", SANDBOX_BASE_URL)
+    parsed = urlparse(base_url)
+    if parsed.hostname not in _ALLOWED_HOSTS:
+        _error(f"QBO_BASE_URL host '{parsed.hostname}' is not allowed")
+
     auth = OAuth2Auth(
         client_id=os.environ["QBO_CLIENT_ID"],
         client_secret=os.environ["QBO_CLIENT_SECRET"],
         access_token=os.environ.get("QBO_ACCESS_TOKEN", ""),
         refresh_token=os.environ["QBO_REFRESH_TOKEN"],
+        on_refresh=_persist_tokens,
     )
     return QBOClient(
         realm_id=os.environ["QBO_REALM_ID"],
         auth=auth,
-        base_url=os.environ.get("QBO_BASE_URL", SANDBOX_BASE_URL),
+        base_url=base_url,
     )
 
 
@@ -51,7 +77,7 @@ def _get_resource(client: QBOClient, name: str) -> Any:
     return getattr(client, key)
 
 
-def _parse_json(raw: str) -> dict:
+def _parse_json(raw: str) -> dict[str, Any]:
     """Parse a JSON string, exiting with an error on invalid input."""
     try:
         return json.loads(raw)
@@ -71,12 +97,24 @@ def _serialize(obj: Any) -> Any:
         return obj.model_dump(by_alias=True)
     if isinstance(obj, list):
         return [_serialize(item) for item in obj]
+    if isinstance(obj, dict):
+        return {k: _serialize(v) for k, v in obj.items()}
     return obj
 
 
 def _output(data: Any) -> None:
     """Write JSON to stdout."""
     click.echo(json.dumps(_serialize(data), indent=2, default=str))
+
+
+def _output_stream(items: Iterator) -> None:
+    """Write a JSON array to stdout incrementally, keeping memory bounded."""
+    click.echo("[")
+    for i, item in enumerate(items):
+        if i > 0:
+            click.echo(",")
+        click.echo(json.dumps(_serialize(item), indent=2, default=str))
+    click.echo("]")
 
 
 def _error(msg: str, code: int = 1) -> NoReturn:
@@ -98,10 +136,16 @@ def read(entity: str, entity_id: str | None) -> None:
     with _make_client() as client:
         resource = _get_resource(client, entity)
         _require_capability(resource, entity, "read")
-        try:
-            result = resource.read() if entity_id is None else resource.read(entity_id)
-        except TypeError:
+        sig = inspect.signature(resource.read)
+        has_required_params = any(
+            p.default is inspect.Parameter.empty
+            and p.name != "self"
+            and p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+            for p in sig.parameters.values()
+        )
+        if has_required_params and entity_id is None:
             _error(f"'{entity}' requires an ID argument for read")
+        result = resource.read() if entity_id is None else resource.read(entity_id)
         _output(result)
 
 
@@ -128,8 +172,7 @@ def list_all(entity: str, where: str | None, order_by: str | None) -> None:
     with _make_client() as client:
         resource = _get_resource(client, entity)
         _require_capability(resource, entity, "query_all")
-        results = list(resource.query_all(where=where, order_by=order_by))
-        _output(results)
+        _output_stream(resource.query_all(where=where, order_by=order_by))
 
 
 @main.command()
@@ -141,7 +184,7 @@ def create(entity: str, json_data: str) -> None:
         resource = _get_resource(client, entity)
         _require_capability(resource, entity, "create")
         data = _parse_json(json_data)
-        if hasattr(resource, "_create_cls"):
+        if isinstance(resource, BaseResource):
             model = resource._create_cls.model_validate(data)
             result = resource.create(model)
         else:

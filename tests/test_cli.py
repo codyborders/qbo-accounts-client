@@ -7,28 +7,31 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from click.testing import CliRunner
+from pydantic import BaseModel
 
-from qbo_accounts.cli import main, _normalize_entity
+from qbo_accounts.cli import main, _normalize_entity, _serialize
+from qbo_accounts.client import _RESOURCE_REGISTRY
 from qbo_accounts.models.base import GenericQueryResponse
 from qbo_accounts.resources.base import (
+    BaseResource,
     NameListResource,
     TransactionResource,
     VoidableTransactionResource,
 )
 
 
-@pytest.fixture()
-def runner():
+@pytest.fixture
+def runner() -> CliRunner:
     return CliRunner()
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_client():
     """Patch _make_client to return a mock QBOClient context manager."""
     with patch("qbo_accounts.cli._make_client") as factory:
         client = MagicMock()
-        client.__enter__ = MagicMock(return_value=client)
-        client.__exit__ = MagicMock(return_value=False)
+        client.__enter__.return_value = client
+        client.__exit__.return_value = False
         factory.return_value = client
         yield client
 
@@ -44,13 +47,43 @@ class TestNormalizeEntity:
         assert _normalize_entity("purchase-orders") == "purchase_orders"
 
 
+class TestSerialize:
+    def test_pydantic_model(self):
+        class SampleModel(BaseModel):
+            name: str
+            value: int
+
+        model = SampleModel(name="test", value=42)
+        result = _serialize(model)
+        assert result == {"name": "test", "value": 42}
+
+    def test_list_of_dicts(self):
+        result = _serialize([{"a": 1}, {"b": 2}])
+        assert result == [{"a": 1}, {"b": 2}]
+
+    def test_dict(self):
+        result = _serialize({"key": "value"})
+        assert result == {"key": "value"}
+
+    def test_plain_value(self):
+        assert _serialize("hello") == "hello"
+        assert _serialize(42) == 42
+
+    def test_nested_pydantic_in_dict(self):
+        class Inner(BaseModel):
+            x: int
+
+        result = _serialize({"nested": Inner(x=1)})
+        assert result == {"nested": {"x": 1}}
+
+
 class TestEntitiesCommand:
     def test_lists_all_entities(self, runner):
         result = runner.invoke(main, ["entities"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert isinstance(data, list)
-        assert len(data) == 36
+        assert len(data) == len(_RESOURCE_REGISTRY)
         assert "customers" in data
         assert "bill-payments" in data
         assert "company-info" in data
@@ -90,6 +123,23 @@ class TestReadCommand:
     def test_read_unknown_entity(self, runner, mock_client):
         result = runner.invoke(main, ["read", "nonexistent", "1"])
         assert result.exit_code != 0
+        error = json.loads(result.stderr)
+        assert "Unknown entity" in error["error"]
+
+    def test_read_entity_requiring_id_without_id(self, runner, mock_client):
+        mock_resource = MagicMock()
+
+        def read_with_id(entity_id: str) -> dict:
+            return {"Id": entity_id}
+
+        mock_resource.read = read_with_id
+
+        with patch("qbo_accounts.cli._get_resource", return_value=mock_resource):
+            result = runner.invoke(main, ["read", "customers"])
+
+        assert result.exit_code != 0
+        error = json.loads(result.stderr)
+        assert "requires an ID" in error["error"]
 
 
 class TestQueryCommand:
@@ -143,11 +193,33 @@ class TestListCommand:
         assert len(data) == 2
         mock_resource.query_all.assert_called_once_with(where=None, order_by=None)
 
+    def test_list_empty(self, runner, mock_client):
+        mock_resource = MagicMock()
+        mock_resource.query_all.return_value = iter([])
+
+        with patch("qbo_accounts.cli._get_resource", return_value=mock_resource):
+            result = runner.invoke(main, ["list", "customers"])
+
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data == []
+
+    def test_list_large_result(self, runner, mock_client):
+        mock_resource = MagicMock()
+        items = [{"Id": str(i), "Name": f"Item {i}"} for i in range(200)]
+        mock_resource.query_all.return_value = iter(items)
+
+        with patch("qbo_accounts.cli._get_resource", return_value=mock_resource):
+            result = runner.invoke(main, ["list", "customers"])
+
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert len(data) == 200
+
 
 class TestCreateCommand:
     def test_create_entity(self, runner, mock_client):
-        mock_resource = MagicMock()
-        mock_resource._create_cls = MagicMock()
+        mock_resource = MagicMock(spec=BaseResource)
         mock_model = MagicMock()
         mock_resource._create_cls.model_validate.return_value = mock_model
         mock_resource.create.return_value = {"Id": "99", "DisplayName": "New"}
@@ -165,6 +237,8 @@ class TestCreateCommand:
             result = runner.invoke(main, ["create", "customers", "not-json"])
 
         assert result.exit_code != 0
+        error = json.loads(result.stderr)
+        assert "Invalid JSON" in error["error"]
 
 
 class TestUpdateCommand:
@@ -178,6 +252,14 @@ class TestUpdateCommand:
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["DisplayName"] == "Updated"
+
+    def test_update_invalid_json(self, runner, mock_client):
+        with patch("qbo_accounts.cli._get_resource", return_value=MagicMock()):
+            result = runner.invoke(main, ["update", "customers", "not-json"])
+
+        assert result.exit_code != 0
+        error = json.loads(result.stderr)
+        assert "Invalid JSON" in error["error"]
 
 
 class TestDeleteCommand:
@@ -198,6 +280,8 @@ class TestDeleteCommand:
             result = runner.invoke(main, ["delete", "customers", "42", "0"])
 
         assert result.exit_code != 0
+        error = json.loads(result.stderr)
+        assert "does not support delete" in error["error"]
 
 
 class TestDeactivateCommand:
@@ -218,6 +302,8 @@ class TestDeactivateCommand:
             result = runner.invoke(main, ["deactivate", "bills", "42", "0"])
 
         assert result.exit_code != 0
+        error = json.loads(result.stderr)
+        assert "does not support deactivate" in error["error"]
 
 
 class TestVoidCommand:
@@ -238,6 +324,8 @@ class TestVoidCommand:
             result = runner.invoke(main, ["void", "bills", "42", "0"])
 
         assert result.exit_code != 0
+        error = json.loads(result.stderr)
+        assert "does not support void" in error["error"]
 
 
 class TestCompanyInfoCommand:
@@ -252,11 +340,25 @@ class TestCompanyInfoCommand:
 
 
 class TestErrorOutput:
-    def test_unknown_entity_error(self, runner, mock_client):
-        result = runner.invoke(main, ["read", "nonexistent", "1"])
-        assert result.exit_code != 0
-
     def test_missing_env_vars(self, runner):
-        with patch.dict("os.environ", {}, clear=True):
+        with patch.dict("os.environ", {}, clear=True), \
+             patch("qbo_accounts.cli.load_dotenv"):
             result = runner.invoke(main, ["company-info"])
         assert result.exit_code != 0
+        error = json.loads(result.stderr)
+        assert "Missing required env vars" in error["error"]
+
+    def test_invalid_base_url_host(self, runner):
+        env = {
+            "QBO_REALM_ID": "123",
+            "QBO_CLIENT_ID": "id",
+            "QBO_CLIENT_SECRET": "secret",
+            "QBO_REFRESH_TOKEN": "token",
+            "QBO_BASE_URL": "https://evil.example.com",
+        }
+        with patch.dict("os.environ", env, clear=True), \
+             patch("qbo_accounts.cli.load_dotenv"):
+            result = runner.invoke(main, ["company-info"])
+        assert result.exit_code != 0
+        error = json.loads(result.stderr)
+        assert "not allowed" in error["error"]

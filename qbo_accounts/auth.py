@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import base64
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Callable
 
 import httpx
 
@@ -40,6 +40,7 @@ class OAuth2Auth(AuthHandler):
         access_token: str,
         refresh_token: str,
         token_url: str = INTUIT_TOKEN_URL,
+        on_refresh: Callable[[str, str], None] | None = None,
     ) -> None:
         self._client_id = client_id
         self._client_secret = client_secret
@@ -48,6 +49,7 @@ class OAuth2Auth(AuthHandler):
         if not token_url.startswith("https://"):
             raise ValueError("token_url must use https")
         self._token_url = token_url
+        self._on_refresh = on_refresh
         self._http_client = httpx.Client()
 
     def apply(self, request: httpx.Request) -> httpx.Request:
@@ -77,6 +79,9 @@ class OAuth2Auth(AuthHandler):
         self.access_token = data["access_token"]
         if "refresh_token" in data:
             self.refresh_token = data["refresh_token"]
+
+        if self._on_refresh:
+            self._on_refresh(self.access_token, self.refresh_token)
 
         return data
 
