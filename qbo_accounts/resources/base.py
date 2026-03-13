@@ -7,7 +7,7 @@ import typing
 from typing import TYPE_CHECKING, Generic, Iterator, TypeVar
 
 from ..models.base import GenericQueryResponse, QBOBaseModel, QBOEntity
-from ..pagination import auto_paginate_query
+from ..pagination import _PAGINATION_CLAUSE_RE, auto_paginate_query
 
 if TYPE_CHECKING:
     from ..client import QBOClient
@@ -73,6 +73,11 @@ class BaseResource(Generic[TEntity, TCreate, TUpdate]):
         """Resolve the concrete create-model type from generic args at runtime."""
         return type(self)._resolve_generic_arg(1, "_cached_create_cls")
 
+    @property
+    def _update_cls(self) -> type[TUpdate]:
+        """Resolve the concrete update-model type from generic args at runtime."""
+        return type(self)._resolve_generic_arg(2, "_cached_update_cls")
+
     def create(self, data: TCreate) -> TEntity:
         """Create a new entity."""
         path = self._client._build_path(self.ENTITY)
@@ -117,6 +122,7 @@ class BaseResource(Generic[TEntity, TCreate, TUpdate]):
     ) -> GenericQueryResponse:
         """Run a single-page SQL-like query."""
         sql = self._build_query(where, order_by)
+        sql = _PAGINATION_CLAUSE_RE.sub("", sql).strip()
         sql += f" STARTPOSITION {start_position} MAXRESULTS {max_results}"
         path = self._client._build_path("query")
         resp = self._client.request("GET", path, params={"query": sql})

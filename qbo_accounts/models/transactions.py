@@ -196,7 +196,7 @@ class PaymentCreate(QBOBaseModel):
     customer_ref: ReferenceType = Field(alias="CustomerRef")
     total_amt: float = Field(alias="TotalAmt")
     txn_date: str | None = Field(default=None, alias="TxnDate")
-    line: list[dict] | None = Field(default=None, alias="Line")
+    line: list[dict] = Field(alias="Line")
 
 
 class PaymentUpdate(QBOBaseModel):

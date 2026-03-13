@@ -13,24 +13,36 @@ class RateLimiter:
     """Enforces rate limits based on QBO response headers."""
 
     def wait_if_needed(self, headers: dict[str, str]) -> None:
-        """Sleep if rate-limit headers indicate throttling."""
+        """Sleep if rate-limit headers indicate throttling.
+
+        Checks headers in priority order: Retry-After (numeric seconds),
+        Retry-After (HTTP date), X-RateLimit-Reset, then DEFAULT_RETRY_DELAY.
+        """
         retry_after = headers.get("Retry-After") or headers.get("retry-after")
         if retry_after:
+            # Try as numeric seconds
             try:
                 time.sleep(min(float(retry_after), MAX_RETRY_AFTER))
+                return
             except (ValueError, TypeError):
-                try:
-                    retry_dt = parsedate_to_datetime(retry_after)
-                    wait = max(0.0, retry_dt.timestamp() - time.time())
-                    time.sleep(min(wait, MAX_RETRY_AFTER))
-                except (ValueError, TypeError):
-                    time.sleep(DEFAULT_RETRY_DELAY)
-            return
+                pass
+            # Try as HTTP date
+            try:
+                retry_dt = parsedate_to_datetime(retry_after)
+                wait = max(0.0, retry_dt.timestamp() - time.time())
+                time.sleep(min(wait, MAX_RETRY_AFTER))
+                return
+            except (ValueError, TypeError):
+                pass
 
+        # Fall through to X-RateLimit-Reset (Unix timestamp)
         reset = headers.get("X-RateLimit-Reset") or headers.get("x-ratelimit-reset")
         if reset:
             try:
                 wait = max(0.0, float(reset) - time.time())
                 time.sleep(min(wait, MAX_RETRY_AFTER))
+                return
             except (ValueError, TypeError):
-                time.sleep(DEFAULT_RETRY_DELAY)
+                pass
+
+        time.sleep(DEFAULT_RETRY_DELAY)

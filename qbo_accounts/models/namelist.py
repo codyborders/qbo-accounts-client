@@ -146,7 +146,6 @@ class ItemUpdate(QBOBaseModel):
     id: str = Field(alias="Id")
     sync_token: str = Field(alias="SyncToken")
     name: str | None = Field(default=None, alias="Name")
-    type: str | None = Field(default=None, alias="Type")
     active: bool | None = Field(default=None, alias="Active")
     unit_price: float | None = Field(default=None, alias="UnitPrice")
     description: str | None = Field(default=None, alias="Description")

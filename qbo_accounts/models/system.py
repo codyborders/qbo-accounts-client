@@ -79,6 +79,14 @@ class Preferences(QBOEntity):
 class PreferencesUpdate(QBOBaseModel):
     id: str = Field(alias="Id")
     sync_token: str = Field(alias="SyncToken")
+    accounting_info_prefs: dict | None = Field(default=None, alias="AccountingInfoPrefs")
+    email_messages_prefs: dict | None = Field(default=None, alias="EmailMessagesPrefs")
+    product_and_services_prefs: dict | None = Field(default=None, alias="ProductAndServicesPrefs")
+    sales_forms_prefs: dict | None = Field(default=None, alias="SalesFormsPrefs")
+    vendor_and_purchases_prefs: dict | None = Field(default=None, alias="VendorAndPurchasesPrefs")
+    time_tracking_prefs: dict | None = Field(default=None, alias="TimeTrackingPrefs")
+    tax_prefs: dict | None = Field(default=None, alias="TaxPrefs")
+    currency_prefs: dict | None = Field(default=None, alias="CurrencyPrefs")
 
 
 # ── TaxService (create only) ─────────────────────────────────────────────

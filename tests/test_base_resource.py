@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from pydantic import Field
 from pytest_httpx import HTTPXMock
 
 from qbo_accounts import QBOClient
@@ -13,7 +14,6 @@ from qbo_accounts.resources.base import (
     TransactionResource,
     VoidableTransactionResource,
 )
-from pydantic import Field
 
 
 class FakeEntity(QBOEntity):
@@ -153,6 +153,39 @@ class TestBaseResourceQuery:
         assert len(result.items) == 2
         assert result.items[0]["Id"] == "1"
         assert result.start_position == 1
+
+
+class TestQueryStripsPaginationClauses:
+    def test_query_strips_existing_pagination_from_where(
+        self, client: QBOClient, httpx_mock: HTTPXMock,
+    ):
+        """query() should strip STARTPOSITION/MAXRESULTS from user input before appending its own."""
+        httpx_mock.add_response(
+            status_code=200,
+            json={
+                "QueryResponse": {
+                    "Fake": [{"Id": "1", "Name": "A", "SyncToken": "0"}],
+                    "startPosition": 1,
+                    "maxResults": 1,
+                }
+            },
+        )
+
+        resource = FakeResource(client)
+        resource.query(where="Id = '1' STARTPOSITION 1 MAXRESULTS 999")
+
+        request = httpx_mock.get_request()
+        query_param = request.url.params["query"]
+        # Should only have ONE STARTPOSITION and ONE MAXRESULTS
+        assert query_param.count("STARTPOSITION") == 1
+        assert query_param.count("MAXRESULTS") == 1
+
+
+class TestBaseResourceUpdateCls:
+    def test_update_cls_resolves_correctly(self, client: QBOClient):
+        """BaseResource._update_cls should resolve the concrete update model type."""
+        resource = FakeResource(client)
+        assert resource._update_cls is FakeUpdate
 
 
 class TestNameListResourceDeactivate:

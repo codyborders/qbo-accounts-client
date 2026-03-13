@@ -136,16 +136,19 @@ def read(entity: str, entity_id: str | None) -> None:
     with _make_client() as client:
         resource = _get_resource(client, entity)
         _require_capability(resource, entity, "read")
+
+        # Check whether read() requires a positional argument (e.g. entity_id)
         sig = inspect.signature(resource.read)
-        has_required_params = any(
+        requires_id = any(
             p.default is inspect.Parameter.empty
             and p.name != "self"
             and p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
             for p in sig.parameters.values()
         )
-        if has_required_params and entity_id is None:
+        if requires_id and entity_id is None:
             _error(f"'{entity}' requires an ID argument for read")
-        result = resource.read() if entity_id is None else resource.read(entity_id)
+
+        result = resource.read(entity_id) if entity_id is not None else resource.read()
         _output(result)
 
 
@@ -201,7 +204,11 @@ def update(entity: str, json_data: str) -> None:
         resource = _get_resource(client, entity)
         _require_capability(resource, entity, "update")
         data = _parse_json(json_data)
-        result = resource.update(data)
+        if isinstance(resource, BaseResource):
+            model = resource._update_cls.model_validate(data)
+            result = resource.update(model)
+        else:
+            result = resource.update(data)
         _output(result)
 
 
