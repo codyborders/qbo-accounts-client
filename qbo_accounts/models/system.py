@@ -2,9 +2,20 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import Field
 
-from .base import QBOBaseModel, QBOEntity
+from .base import QBOEntity, QBOInputModel
+
+__all__ = [
+    "Budget",
+    "CompanyInfo", "CompanyInfoUpdate",
+    "Entitlements",
+    "ExchangeRate", "ExchangeRateUpdate",
+    "Preferences", "PreferencesUpdate",
+    "TaxServiceCreate",
+]
 
 
 # ── Budget (query only) ───────────────────────────────────────────────────
@@ -23,20 +34,20 @@ class Budget(QBOEntity):
 class CompanyInfo(QBOEntity):
     company_name: str | None = Field(default=None, alias="CompanyName")
     legal_name: str | None = Field(default=None, alias="LegalName")
-    company_addr: dict | None = Field(default=None, alias="CompanyAddr")
-    legal_addr: dict | None = Field(default=None, alias="LegalAddr")
-    primary_phone: dict | None = Field(default=None, alias="PrimaryPhone")
-    email: dict | None = Field(default=None, alias="Email")
+    company_addr: dict[str, Any] | None = Field(default=None, alias="CompanyAddr")
+    legal_addr: dict[str, Any] | None = Field(default=None, alias="LegalAddr")
+    primary_phone: dict[str, Any] | None = Field(default=None, alias="PrimaryPhone")
+    email: dict[str, Any] | None = Field(default=None, alias="Email")
     fiscal_year_start_month: str | None = Field(default=None, alias="FiscalYearStartMonth")
     country: str | None = Field(default=None, alias="Country")
 
 
-class CompanyInfoUpdate(QBOBaseModel):
+class CompanyInfoUpdate(QBOInputModel):
     id: str = Field(alias="Id")
     sync_token: str = Field(alias="SyncToken")
     company_name: str | None = Field(default=None, alias="CompanyName")
     legal_name: str | None = Field(default=None, alias="LegalName")
-    company_addr: dict | None = Field(default=None, alias="CompanyAddr")
+    company_addr: dict[str, Any] | None = Field(default=None, alias="CompanyAddr")
 
 
 # ── Entitlements (read only) ──────────────────────────────────────────────
@@ -55,7 +66,7 @@ class ExchangeRate(QBOEntity):
     as_of_date: str | None = Field(default=None, alias="AsOfDate")
 
 
-class ExchangeRateUpdate(QBOBaseModel):
+class ExchangeRateUpdate(QBOInputModel):
     id: str = Field(alias="Id")
     sync_token: str = Field(alias="SyncToken")
     source_currency_code: str | None = Field(default=None, alias="SourceCurrencyCode")
@@ -66,31 +77,31 @@ class ExchangeRateUpdate(QBOBaseModel):
 # ── Preferences (read/update) ────────────────────────────────────────────
 
 class Preferences(QBOEntity):
-    accounting_info_prefs: dict | None = Field(default=None, alias="AccountingInfoPrefs")
-    email_messages_prefs: dict | None = Field(default=None, alias="EmailMessagesPrefs")
-    product_and_services_prefs: dict | None = Field(default=None, alias="ProductAndServicesPrefs")
-    sales_forms_prefs: dict | None = Field(default=None, alias="SalesFormsPrefs")
-    vendor_and_purchases_prefs: dict | None = Field(default=None, alias="VendorAndPurchasesPrefs")
-    time_tracking_prefs: dict | None = Field(default=None, alias="TimeTrackingPrefs")
-    tax_prefs: dict | None = Field(default=None, alias="TaxPrefs")
-    currency_prefs: dict | None = Field(default=None, alias="CurrencyPrefs")
+    accounting_info_prefs: dict[str, Any] | None = Field(default=None, alias="AccountingInfoPrefs")
+    email_messages_prefs: dict[str, Any] | None = Field(default=None, alias="EmailMessagesPrefs")
+    product_and_services_prefs: dict[str, Any] | None = Field(default=None, alias="ProductAndServicesPrefs")
+    sales_forms_prefs: dict[str, Any] | None = Field(default=None, alias="SalesFormsPrefs")
+    vendor_and_purchases_prefs: dict[str, Any] | None = Field(default=None, alias="VendorAndPurchasesPrefs")
+    time_tracking_prefs: dict[str, Any] | None = Field(default=None, alias="TimeTrackingPrefs")
+    tax_prefs: dict[str, Any] | None = Field(default=None, alias="TaxPrefs")
+    currency_prefs: dict[str, Any] | None = Field(default=None, alias="CurrencyPrefs")
 
 
-class PreferencesUpdate(QBOBaseModel):
+class PreferencesUpdate(QBOInputModel):
     id: str = Field(alias="Id")
     sync_token: str = Field(alias="SyncToken")
-    accounting_info_prefs: dict | None = Field(default=None, alias="AccountingInfoPrefs")
-    email_messages_prefs: dict | None = Field(default=None, alias="EmailMessagesPrefs")
-    product_and_services_prefs: dict | None = Field(default=None, alias="ProductAndServicesPrefs")
-    sales_forms_prefs: dict | None = Field(default=None, alias="SalesFormsPrefs")
-    vendor_and_purchases_prefs: dict | None = Field(default=None, alias="VendorAndPurchasesPrefs")
-    time_tracking_prefs: dict | None = Field(default=None, alias="TimeTrackingPrefs")
-    tax_prefs: dict | None = Field(default=None, alias="TaxPrefs")
-    currency_prefs: dict | None = Field(default=None, alias="CurrencyPrefs")
+    accounting_info_prefs: dict[str, Any] | None = Field(default=None, alias="AccountingInfoPrefs")
+    email_messages_prefs: dict[str, Any] | None = Field(default=None, alias="EmailMessagesPrefs")
+    product_and_services_prefs: dict[str, Any] | None = Field(default=None, alias="ProductAndServicesPrefs")
+    sales_forms_prefs: dict[str, Any] | None = Field(default=None, alias="SalesFormsPrefs")
+    vendor_and_purchases_prefs: dict[str, Any] | None = Field(default=None, alias="VendorAndPurchasesPrefs")
+    time_tracking_prefs: dict[str, Any] | None = Field(default=None, alias="TimeTrackingPrefs")
+    tax_prefs: dict[str, Any] | None = Field(default=None, alias="TaxPrefs")
+    currency_prefs: dict[str, Any] | None = Field(default=None, alias="CurrencyPrefs")
 
 
 # ── TaxService (create only) ─────────────────────────────────────────────
 
-class TaxServiceCreate(QBOBaseModel):
+class TaxServiceCreate(QBOInputModel):
     tax_code: str = Field(alias="TaxCode")
-    tax_rate_details: list[dict] = Field(alias="TaxRateDetails")
+    tax_rate_details: list[dict[str, Any]] = Field(alias="TaxRateDetails")

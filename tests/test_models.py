@@ -106,6 +106,67 @@ class TestItemUpdateModel:
         assert "Type" not in payload
 
 
+class TestQBOInputModel:
+    """S3: QBOInputModel in qbo_accounts/models/base.py rejects extra fields.
+
+    Create/update input models inherit from QBOInputModel (extra='forbid')
+    while read models inherit from QBOBaseModel (extra='allow').
+    This ensures user-supplied input is strictly validated at the input boundary.
+    """
+
+    def test_input_model_rejects_extra_fields(self):
+        """QBOInputModel (qbo_accounts/models/base.py) should reject unknown fields."""
+        from qbo_accounts.models.base import QBOInputModel
+
+        class StrictModel(QBOInputModel):
+            name: str = "test"
+
+        with pytest.raises(ValidationError):
+            StrictModel(name="ok", bad_field="nope")
+
+    def test_base_model_still_allows_extra(self):
+        """QBOBaseModel (qbo_accounts/models/base.py) should still allow extras."""
+        m = QBOBaseModel(unknown_field="ok")
+        assert m.model_extra.get("unknown_field") == "ok"
+
+    def test_create_model_rejects_extra_fields(self):
+        """Create models with extra='forbid' should raise ValidationError for unknown fields."""
+        from qbo_accounts.models.namelist import CustomerCreate
+        with pytest.raises(ValidationError):
+            CustomerCreate(DisplayName="Test", UnknownField="bad")
+
+    def test_update_model_rejects_extra_fields(self):
+        """Update models with extra='forbid' should raise ValidationError for unknown fields."""
+        from qbo_accounts.models.namelist import CustomerUpdate
+        with pytest.raises(ValidationError):
+            CustomerUpdate(Id="1", SyncToken="0", DisplayName="Test", FakeField="bad")
+
+    def test_read_model_allows_extra_fields(self):
+        """Read models (QBOEntity) should still allow extra fields from API responses."""
+        from qbo_accounts.models.namelist import Customer
+        c = Customer(DisplayName="Test", UnknownField="ok")
+        assert c.model_extra is not None
+        assert c.model_extra.get("UnknownField") == "ok"
+
+    def test_generic_query_response_uses_typed_dict(self):
+        """GenericQueryResponse.items in qbo_accounts/models/base.py uses dict[str, Any] (Q2)."""
+        resp = GenericQueryResponse(items=[{"Id": "1"}])
+        assert resp.items == [{"Id": "1"}]
+
+
+class TestQBOClassRename:
+    """Q5: Class_ should be renamed to QBOClass for clarity."""
+
+    def test_qbo_class_importable(self):
+        from qbo_accounts.models.namelist import QBOClass
+        c = QBOClass(Id="1", SyncToken="0", Name="Test")
+        assert c.name == "Test"
+
+    def test_qbo_class_is_entity(self):
+        from qbo_accounts.models.namelist import QBOClass
+        assert issubclass(QBOClass, QBOEntity)
+
+
 class TestGenericQueryResponse:
     def test_from_qbo_response_with_entity_key(self):
         """Generic QueryResponse should parse using any entity key."""

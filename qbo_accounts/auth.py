@@ -52,6 +52,9 @@ class OAuth2Auth(AuthHandler):
         self._on_refresh = on_refresh
         self._http_client = httpx.Client()
 
+    def __repr__(self) -> str:
+        return f"OAuth2Auth(client_id={self._client_id!r}, token_url={self._token_url!r})"
+
     def apply(self, request: httpx.Request) -> httpx.Request:
         request.headers["Authorization"] = f"Bearer {self.access_token}"
         return request

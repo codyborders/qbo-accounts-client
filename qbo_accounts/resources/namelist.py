@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from .base import NameListResource
 from ..models.namelist import (
-    Class_, ClassCreate, ClassUpdate,
+    QBOClass, ClassCreate, ClassUpdate,
     Customer, CustomerCreate, CustomerUpdate,
     Department, DepartmentCreate, DepartmentUpdate,
     Employee, EmployeeCreate, EmployeeUpdate,
@@ -20,7 +20,7 @@ from ..models.namelist import (
 )
 
 
-class ClassesResource(NameListResource[Class_, ClassCreate, ClassUpdate]):
+class ClassesResource(NameListResource[QBOClass, ClassCreate, ClassUpdate]):
     ENTITY = "class"
     ENTITY_KEY = "Class"
 

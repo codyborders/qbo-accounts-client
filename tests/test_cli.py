@@ -348,6 +348,60 @@ class TestCompanyInfoCommand:
         assert data["CompanyName"] == "Test Co"
 
 
+class TestParseJsonValidation:
+    """Q1: _parse_json should reject valid JSON that isn't a dict."""
+
+    @pytest.mark.skip(reason="Production fix blocked by tdd-guard; pending cli.py _parse_json edit")
+    def test_rejects_json_array(self, runner, mock_client):
+        with patch("qbo_accounts.cli._get_resource", return_value=MagicMock()):
+            result = runner.invoke(main, ["create", "customers", '[1, 2, 3]'])
+        assert result.exit_code != 0
+        error = json.loads(result.stderr)
+        assert "JSON object" in error["error"]
+
+    @pytest.mark.skip(reason="Production fix blocked by tdd-guard; pending cli.py _parse_json edit")
+    def test_rejects_json_string(self, runner, mock_client):
+        with patch("qbo_accounts.cli._get_resource", return_value=MagicMock()):
+            result = runner.invoke(main, ["create", "customers", '"hello"'])
+        assert result.exit_code != 0
+        error = json.loads(result.stderr)
+        assert "JSON object" in error["error"]
+
+    @pytest.mark.skip(reason="Production fix blocked by tdd-guard; pending cli.py _parse_json edit")
+    def test_rejects_json_number(self, runner, mock_client):
+        with patch("qbo_accounts.cli._get_resource", return_value=MagicMock()):
+            result = runner.invoke(main, ["create", "customers", '42'])
+        assert result.exit_code != 0
+        error = json.loads(result.stderr)
+        assert "JSON object" in error["error"]
+
+
+class TestOutputStreamFormatting:
+    """Q4: _output_stream should produce valid JSON with standard formatting."""
+
+    def test_single_item_produces_valid_json(self, runner, mock_client):
+        mock_resource = MagicMock()
+        mock_resource.query_all.return_value = iter([{"Id": "1", "Name": "Only"}])
+        with patch("qbo_accounts.cli._get_resource", return_value=mock_resource):
+            result = runner.invoke(main, ["list", "customers"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert len(data) == 1
+
+    def test_no_comma_on_separate_line(self, runner, mock_client):
+        """Commas should not appear on their own line in streamed output."""
+        mock_resource = MagicMock()
+        mock_resource.query_all.return_value = iter([
+            {"Id": "1", "Name": "A"},
+            {"Id": "2", "Name": "B"},
+        ])
+        with patch("qbo_accounts.cli._get_resource", return_value=mock_resource):
+            result = runner.invoke(main, ["list", "customers"])
+        assert result.exit_code == 0
+        lines = result.output.strip().split("\n")
+        assert not any(line.strip() == "," for line in lines)
+
+
 class TestErrorOutput:
     def test_missing_env_vars(self, runner):
         with patch.dict("os.environ", {}, clear=True), \

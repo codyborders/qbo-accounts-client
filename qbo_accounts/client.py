@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import re
 from typing import TYPE_CHECKING, Any
 
 import httpx
@@ -158,6 +159,8 @@ class QBOClient:
         """Build the QBO REST URL path for an entity."""
         path = f"/v3/company/{self.realm_id}/{entity}"
         if entity_id is not None:
+            if not re.match(r"^[\w\-]+$", entity_id):
+                raise ValueError(f"Invalid entity_id: {entity_id!r}")
             path = f"{path}/{entity_id}"
         return path
 
@@ -196,8 +199,11 @@ class QBOClient:
 
         response = self._send_authenticated(method, path, params, json, headers)
 
-        # Handle 429 first (rate limit)
-        if response.status_code == 429:
+        # Handle 429 with retry loop
+        max_retries = 3
+        for _ in range(max_retries):
+            if response.status_code != 429:
+                break
             self._rate_limiter.wait_if_needed(dict(response.headers))
             response = self._send_authenticated(method, path, params, json, headers)
 

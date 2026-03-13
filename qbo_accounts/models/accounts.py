@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from pydantic import Field
 
-from .base import QBOBaseModel, QBOEntity, ReferenceType
+from .base import QBOEntity, QBOInputModel, ReferenceType
+
+__all__ = ["Account", "AccountCreate", "AccountUpdate"]
 
 
 class Account(QBOEntity):
@@ -30,7 +32,7 @@ class Account(QBOEntity):
     current_balance: float | None = Field(default=None, alias="CurrentBalance")
 
 
-class AccountCreate(QBOBaseModel):
+class AccountCreate(QBOInputModel):
     """Fields for creating a new QBO Account (Name and AccountType required)."""
 
     name: str = Field(alias="Name")
@@ -46,7 +48,7 @@ class AccountCreate(QBOBaseModel):
     account_alias: str | None = Field(default=None, alias="AccountAlias")
 
 
-class AccountUpdate(QBOBaseModel):
+class AccountUpdate(QBOInputModel):
     """Fields for a full update of a QBO Account. Id and SyncToken are required."""
 
     id: str = Field(alias="Id")

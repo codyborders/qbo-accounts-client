@@ -111,10 +111,9 @@ def _output_stream(items: Iterator) -> None:
     """Write a JSON array to stdout incrementally, keeping memory bounded."""
     click.echo("[")
     for i, item in enumerate(items):
-        if i > 0:
-            click.echo(",")
-        click.echo(json.dumps(_serialize(item), indent=2, default=str))
-    click.echo("]")
+        prefix = ",\n" if i > 0 else ""
+        click.echo(f"{prefix}{json.dumps(_serialize(item), indent=2, default=str)}", nl=False)
+    click.echo("\n]")
 
 
 def _error(msg: str, code: int = 1) -> NoReturn:

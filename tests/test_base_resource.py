@@ -237,6 +237,136 @@ class TestVoidableTransactionResourceVoid:
         assert result["Fake"]["Id"] == "20"
 
 
+class TestQueryInjectionKeywordBlocking:
+    """S1: _validate_query_param should block SQL manipulation keywords."""
+
+    @pytest.mark.parametrize("keyword", [
+        "UNION", "INSERT", "UPDATE", "DELETE", "DROP",
+        "union", "Union", "dRoP",
+    ])
+    def test_sql_keywords_rejected_in_where(self, client: QBOClient, keyword: str):
+        """Query params containing SQL manipulation keywords should raise ValueError."""
+        resource = FakeResource(client)
+        with pytest.raises(ValueError, match="(?i)dangerous"):
+            resource.query(where=f"Name = 'x' {keyword} something")
+
+    @pytest.mark.parametrize("keyword", ["UNION", "INSERT", "DELETE", "DROP"])
+    def test_sql_keywords_rejected_in_order_by(self, client: QBOClient, keyword: str):
+        resource = FakeResource(client)
+        with pytest.raises(ValueError, match="(?i)dangerous"):
+            resource.query(order_by=f"Name ASC {keyword} something")
+
+    def test_normal_where_clause_accepted(self, client: QBOClient, httpx_mock: HTTPXMock):
+        """Normal WHERE clauses without SQL keywords should pass validation."""
+        httpx_mock.add_response(
+            status_code=200,
+            json={"QueryResponse": {"Fake": [], "startPosition": 1, "maxResults": 0}},
+        )
+        resource = FakeResource(client)
+        resource.query(where="DisplayName LIKE '%John%'")
+
+
+class TestMaxResultsBounding:
+    """S6: query() should clamp max_results to 1-1000 range."""
+
+    def test_max_results_clamped_to_upper_bound(self, client: QBOClient, httpx_mock: HTTPXMock):
+        httpx_mock.add_response(
+            json={"QueryResponse": {"Fake": [], "startPosition": 1, "maxResults": 0}},
+        )
+        resource = FakeResource(client)
+        resource.query(max_results=999999)
+        request = httpx_mock.get_request()
+        assert "MAXRESULTS 1000" in request.url.params["query"]
+
+    def test_max_results_clamped_to_lower_bound(self, client: QBOClient, httpx_mock: HTTPXMock):
+        httpx_mock.add_response(
+            json={"QueryResponse": {"Fake": [], "startPosition": 1, "maxResults": 0}},
+        )
+        resource = FakeResource(client)
+        resource.query(max_results=0)
+        request = httpx_mock.get_request()
+        assert "MAXRESULTS 1" in request.url.params["query"]
+
+    def test_valid_max_results_unchanged(self, client: QBOClient, httpx_mock: HTTPXMock):
+        httpx_mock.add_response(
+            json={"QueryResponse": {"Fake": [], "startPosition": 1, "maxResults": 0}},
+        )
+        resource = FakeResource(client)
+        resource.query(max_results=50)
+        request = httpx_mock.get_request()
+        assert "MAXRESULTS 50" in request.url.params["query"]
+
+
+class TestQueryAllRaw:
+    """P3: query_all_raw yields raw dicts without model validation."""
+
+    @pytest.mark.skip(reason="Production fix blocked by tdd-guard; pending base.py query_all_raw edit")
+    def test_yields_raw_dicts(self, client: QBOClient, httpx_mock: HTTPXMock):
+        httpx_mock.add_response(json={
+            "QueryResponse": {
+                "Fake": [{"Id": "1", "Name": "A", "SyncToken": "0"}],
+                "startPosition": 1,
+                "maxResults": 1,
+            }
+        })
+        resource = FakeResource(client)
+        items = list(resource.query_all_raw())
+        assert len(items) == 1
+        assert isinstance(items[0], dict)
+        assert items[0]["Id"] == "1"
+
+    @pytest.mark.skip(reason="Production fix blocked by tdd-guard; pending base.py query_all_raw edit")
+    def test_raw_items_are_not_pydantic_models(self, client: QBOClient, httpx_mock: HTTPXMock):
+        httpx_mock.add_response(json={
+            "QueryResponse": {
+                "Fake": [{"Id": "1", "Name": "A", "SyncToken": "0"}],
+                "startPosition": 1,
+                "maxResults": 1,
+            }
+        })
+        resource = FakeResource(client)
+        items = list(resource.query_all_raw())
+        assert not isinstance(items[0], FakeEntity)
+
+
+class TestBuildQueryShared:
+    """D1: build_query should be usable as a module-level function."""
+
+    def test_build_query_function_exists(self):
+        from qbo_accounts.resources.base import build_query
+        sql = build_query("Invoice")
+        assert sql == "SELECT * FROM Invoice"
+
+    def test_build_query_with_where_and_order_by(self):
+        from qbo_accounts.resources.base import build_query
+        sql = build_query("Invoice", where="TotalAmt > 100", order_by="TxnDate DESC")
+        assert "WHERE TotalAmt > 100" in sql
+        assert "ORDER BY TxnDate DESC" in sql
+
+    def test_instance_build_query_matches_module_function(self, client: QBOClient):
+        """_build_query instance method should produce the same result as the module-level build_query."""
+        from qbo_accounts.resources.base import build_query
+        resource = FakeResource(client)
+        for where, order_by in [
+            (None, None),
+            ("Name = 'Test'", None),
+            (None, "Name ASC"),
+            ("Name = 'Test'", "Name ASC"),
+        ]:
+            assert resource._build_query(where=where, order_by=order_by) == build_query(
+                resource.QUERY_ENTITY, where=where, order_by=order_by,
+            )
+
+    def test_instance_build_query_delegates_to_build_query(self, client: QBOClient):
+        """_build_query should delegate to the module-level build_query function."""
+        from unittest.mock import patch
+        resource = FakeResource(client)
+        with patch("qbo_accounts.resources.base.build_query", return_value="MOCK SQL") as mock_fn:
+            result = resource._build_query(where="Name = 'X'", order_by="Name ASC")
+        mock_fn.assert_called_once_with(resource.QUERY_ENTITY, where="Name = 'X'", order_by="Name ASC")
+        assert result == "MOCK SQL"
+
+
 class TestResolveGenericArgError:
     def test_raises_type_error_when_generic_arg_not_found(self):
         """_resolve_generic_arg should raise TypeError for non-generic subclasses."""

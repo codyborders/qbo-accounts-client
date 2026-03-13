@@ -21,7 +21,7 @@ from .models import (
     # Accounts
     Account, AccountCreate, AccountUpdate,
     # Name-list
-    Class_, ClassCreate, ClassUpdate,
+    QBOClass, ClassCreate, ClassUpdate,
     CompanyCurrency, CompanyCurrencyCreate, CompanyCurrencyUpdate,
     Customer, CustomerCreate, CustomerUpdate,
     Department, DepartmentCreate, DepartmentUpdate,
@@ -124,7 +124,7 @@ __all__ = [
     # Accounts
     "Account", "AccountCreate", "AccountUpdate",
     # Name-list
-    "Class_", "ClassCreate", "ClassUpdate",
+    "QBOClass", "ClassCreate", "ClassUpdate",
     "CompanyCurrency", "CompanyCurrencyCreate", "CompanyCurrencyUpdate",
     "Customer", "CustomerCreate", "CustomerUpdate",
     "Department", "DepartmentCreate", "DepartmentUpdate",
