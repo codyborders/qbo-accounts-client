@@ -85,7 +85,6 @@ class TestBuildQueryModuleFunction:
 class TestQueryAllRaw:
     """P3: query_all_raw in qbo_accounts/resources/base.py yields raw dicts."""
 
-    @pytest.mark.skip(reason="Production fix blocked by tdd-guard; pending base.py query_all_raw edit")
     def test_yields_dicts(self, client: QBOClient, httpx_mock: HTTPXMock):
         httpx_mock.add_response(json={
             "QueryResponse": {

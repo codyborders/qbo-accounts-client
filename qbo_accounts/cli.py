@@ -80,9 +80,12 @@ def _get_resource(client: QBOClient, name: str) -> Any:
 def _parse_json(raw: str) -> dict[str, Any]:
     """Parse a JSON string, exiting with an error on invalid input."""
     try:
-        return json.loads(raw)
+        data = json.loads(raw)
     except json.JSONDecodeError as e:
         _error(f"Invalid JSON: {e}")
+    if not isinstance(data, dict):
+        _error("Expected a JSON object")
+    return data
 
 
 def _require_capability(resource: Any, entity: str, method: str) -> None:

@@ -159,6 +159,21 @@ class BaseResource(Generic[TEntity, TCreate, TUpdate]):
         for item in auto_paginate_query(execute, sql, page_size=page_size):
             yield self._entity_cls.model_validate(item)
 
+    def query_all_raw(
+        self,
+        where: str | None = None,
+        order_by: str | None = None,
+        page_size: int = 100,
+    ) -> Iterator[dict]:
+        """Auto-paginate through all matching entities, yielding raw dicts."""
+        sql = self._build_query(where, order_by)
+        path = self._client._build_path("query")
+
+        def execute(query: str) -> dict:
+            return self._client.request("GET", path, params={"query": query})
+
+        yield from auto_paginate_query(execute, sql, page_size=page_size)
+
 
 class NameListResource(BaseResource[TEntity, TCreate, TUpdate]):
     """Resource for name-list entities that support soft-delete via Active=false."""

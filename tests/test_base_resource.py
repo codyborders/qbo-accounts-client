@@ -300,7 +300,6 @@ class TestMaxResultsBounding:
 class TestQueryAllRaw:
     """P3: query_all_raw yields raw dicts without model validation."""
 
-    @pytest.mark.skip(reason="Production fix blocked by tdd-guard; pending base.py query_all_raw edit")
     def test_yields_raw_dicts(self, client: QBOClient, httpx_mock: HTTPXMock):
         httpx_mock.add_response(json={
             "QueryResponse": {
@@ -315,7 +314,6 @@ class TestQueryAllRaw:
         assert isinstance(items[0], dict)
         assert items[0]["Id"] == "1"
 
-    @pytest.mark.skip(reason="Production fix blocked by tdd-guard; pending base.py query_all_raw edit")
     def test_raw_items_are_not_pydantic_models(self, client: QBOClient, httpx_mock: HTTPXMock):
         httpx_mock.add_response(json={
             "QueryResponse": {

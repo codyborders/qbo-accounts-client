@@ -351,7 +351,6 @@ class TestCompanyInfoCommand:
 class TestParseJsonValidation:
     """Q1: _parse_json should reject valid JSON that isn't a dict."""
 
-    @pytest.mark.skip(reason="Production fix blocked by tdd-guard; pending cli.py _parse_json edit")
     def test_rejects_json_array(self, runner, mock_client):
         with patch("qbo_accounts.cli._get_resource", return_value=MagicMock()):
             result = runner.invoke(main, ["create", "customers", '[1, 2, 3]'])
@@ -359,7 +358,6 @@ class TestParseJsonValidation:
         error = json.loads(result.stderr)
         assert "JSON object" in error["error"]
 
-    @pytest.mark.skip(reason="Production fix blocked by tdd-guard; pending cli.py _parse_json edit")
     def test_rejects_json_string(self, runner, mock_client):
         with patch("qbo_accounts.cli._get_resource", return_value=MagicMock()):
             result = runner.invoke(main, ["create", "customers", '"hello"'])
@@ -367,7 +365,6 @@ class TestParseJsonValidation:
         error = json.loads(result.stderr)
         assert "JSON object" in error["error"]
 
-    @pytest.mark.skip(reason="Production fix blocked by tdd-guard; pending cli.py _parse_json edit")
     def test_rejects_json_number(self, runner, mock_client):
         with patch("qbo_accounts.cli._get_resource", return_value=MagicMock()):
             result = runner.invoke(main, ["create", "customers", '42'])
