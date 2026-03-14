@@ -210,6 +210,86 @@ class TestResourceCleanup:
         assert auth._http_client.is_closed
 
 
+class TestRetryLoopWithMultiple429s:
+    """P1: Client should retry multiple times on consecutive 429 responses."""
+
+    def test_multiple_429s_then_success(self, client: QBOClient, httpx_mock: HTTPXMock):
+        """Three 429s followed by success should eventually return data."""
+        for _ in range(3):
+            httpx_mock.add_response(
+                status_code=429,
+                headers={"Retry-After": "0"},
+                json={"Fault": {"Error": [{"Message": "Throttled"}]}},
+            )
+        httpx_mock.add_response(
+            status_code=200,
+            json={"Account": {"Id": "1", "SyncToken": "0"}},
+        )
+        result = client.request("GET", f"/v3/company/{REALM_ID}/account/1")
+        assert result["Account"]["Id"] == "1"
+
+    def test_exhausted_retries_raises_rate_limit_error(self, client: QBOClient, httpx_mock: HTTPXMock):
+        """More 429s than max retries should raise RateLimitError."""
+        # 1 initial + 3 retries = 4 total responses needed
+        for _ in range(4):
+            httpx_mock.add_response(
+                status_code=429,
+                headers={"Retry-After": "0"},
+                json={"Fault": {"Error": [{"Message": "Throttled"}]}},
+            )
+        with pytest.raises(RateLimitError):
+            client.request("GET", f"/v3/company/{REALM_ID}/account/1")
+
+
+class TestEntityIdValidation:
+    """S4: _build_path should reject entity_id with dangerous characters."""
+
+    def test_valid_numeric_entity_id(self, client: QBOClient):
+        path = client._build_path("account", "42")
+        assert path == f"/v3/company/{REALM_ID}/account/42"
+
+    def test_entity_id_with_path_traversal_rejected(self, client: QBOClient):
+        with pytest.raises(ValueError, match="entity_id"):
+            client._build_path("account", "../../../etc/passwd")
+
+    def test_entity_id_with_semicolon_rejected(self, client: QBOClient):
+        with pytest.raises(ValueError, match="entity_id"):
+            client._build_path("account", "1; DROP TABLE accounts")
+
+
+class TestOAuth2AuthRepr:
+    """S2: OAuth2Auth repr should redact sensitive tokens."""
+
+    def test_repr_does_not_expose_tokens(self):
+        auth = OAuth2Auth(
+            client_id="test-id",
+            client_secret="test-secret",
+            access_token="super-secret-token",
+            refresh_token="super-secret-refresh",
+        )
+        r = repr(auth)
+        assert "super-secret-token" not in r
+        assert "super-secret-refresh" not in r
+        assert "test-secret" not in r
+        assert "OAuth2Auth" in r
+        assert "client_id=" in r
+        auth.close()
+
+    def test_str_does_not_expose_tokens(self):
+        auth = OAuth2Auth(
+            client_id="test-id",
+            client_secret="test-secret",
+            access_token="super-secret-token",
+            refresh_token="super-secret-refresh",
+        )
+        s = str(auth)
+        assert "super-secret-token" not in s
+        assert "super-secret-refresh" not in s
+        assert "OAuth2Auth" in s
+        assert "client_id=" in s
+        auth.close()
+
+
 class TestOAuth2HTTPSEnforcement:
     def test_http_token_url_rejected(self):
         """OAuth2Auth should reject non-HTTPS token URLs."""

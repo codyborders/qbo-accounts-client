@@ -143,38 +143,42 @@ class TestReadCommand:
 
 
 class TestQueryCommand:
-    def test_query_entity(self, runner, mock_client):
+    @pytest.fixture
+    def mock_resource_with_query(self):
+        """Return a mock resource pre-configured with a query response."""
         mock_resource = MagicMock()
-        response = GenericQueryResponse(entities=[{"Id": "1"}], start_position=1, max_results=1, total_count=1)
+        response = GenericQueryResponse(
+            items=[], start_position=1, max_results=0, total_count=0,
+        )
         mock_resource.query.return_value = response
+        return mock_resource
 
-        with patch("qbo_accounts.cli._get_resource", return_value=mock_resource):
+    def test_query_entity(self, runner, mock_client, mock_resource_with_query):
+        with patch("qbo_accounts.cli._get_resource", return_value=mock_resource_with_query):
             result = runner.invoke(main, ["query", "customers"])
 
         assert result.exit_code == 0
-        mock_resource.query.assert_called_once_with(where=None, order_by=None, max_results=100)
+        mock_resource_with_query.query.assert_called_once_with(
+            where=None, order_by=None, max_results=100,
+        )
 
-    def test_query_with_where(self, runner, mock_client):
-        mock_resource = MagicMock()
-        response = GenericQueryResponse(entities=[], start_position=1, max_results=0, total_count=0)
-        mock_resource.query.return_value = response
-
-        with patch("qbo_accounts.cli._get_resource", return_value=mock_resource):
+    def test_query_with_where(self, runner, mock_client, mock_resource_with_query):
+        with patch("qbo_accounts.cli._get_resource", return_value=mock_resource_with_query):
             result = runner.invoke(main, ["query", "customers", "--where", "DisplayName LIKE '%John%'"])
 
         assert result.exit_code == 0
-        mock_resource.query.assert_called_once_with(where="DisplayName LIKE '%John%'", order_by=None, max_results=100)
+        mock_resource_with_query.query.assert_called_once_with(
+            where="DisplayName LIKE '%John%'", order_by=None, max_results=100,
+        )
 
-    def test_query_with_order_by(self, runner, mock_client):
-        mock_resource = MagicMock()
-        response = GenericQueryResponse(entities=[], start_position=1, max_results=0, total_count=0)
-        mock_resource.query.return_value = response
-
-        with patch("qbo_accounts.cli._get_resource", return_value=mock_resource):
+    def test_query_with_order_by(self, runner, mock_client, mock_resource_with_query):
+        with patch("qbo_accounts.cli._get_resource", return_value=mock_resource_with_query):
             result = runner.invoke(main, ["query", "customers", "--order-by", "DisplayName ASC"])
 
         assert result.exit_code == 0
-        mock_resource.query.assert_called_once_with(where=None, order_by="DisplayName ASC", max_results=100)
+        mock_resource_with_query.query.assert_called_once_with(
+            where=None, order_by="DisplayName ASC", max_results=100,
+        )
 
 
 class TestListCommand:
@@ -242,8 +246,11 @@ class TestCreateCommand:
 
 
 class TestUpdateCommand:
-    def test_update_entity(self, runner, mock_client):
-        mock_resource = MagicMock()
+    def test_update_validates_json_to_pydantic_model(self, runner, mock_client):
+        """CLI update should validate JSON into a Pydantic model before calling resource.update()."""
+        mock_resource = MagicMock(spec=BaseResource)
+        mock_model = MagicMock()
+        mock_resource._update_cls.model_validate.return_value = mock_model
         mock_resource.update.return_value = {"Id": "42", "DisplayName": "Updated"}
 
         with patch("qbo_accounts.cli._get_resource", return_value=mock_resource):
@@ -252,6 +259,8 @@ class TestUpdateCommand:
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["DisplayName"] == "Updated"
+        mock_resource._update_cls.model_validate.assert_called_once()
+        mock_resource.update.assert_called_once_with(mock_model)
 
     def test_update_invalid_json(self, runner, mock_client):
         with patch("qbo_accounts.cli._get_resource", return_value=MagicMock()):
@@ -337,6 +346,57 @@ class TestCompanyInfoCommand:
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["CompanyName"] == "Test Co"
+
+
+class TestParseJsonValidation:
+    """Q1: _parse_json should reject valid JSON that isn't a dict."""
+
+    def test_rejects_json_array(self, runner, mock_client):
+        with patch("qbo_accounts.cli._get_resource", return_value=MagicMock()):
+            result = runner.invoke(main, ["create", "customers", '[1, 2, 3]'])
+        assert result.exit_code != 0
+        error = json.loads(result.stderr)
+        assert "JSON object" in error["error"]
+
+    def test_rejects_json_string(self, runner, mock_client):
+        with patch("qbo_accounts.cli._get_resource", return_value=MagicMock()):
+            result = runner.invoke(main, ["create", "customers", '"hello"'])
+        assert result.exit_code != 0
+        error = json.loads(result.stderr)
+        assert "JSON object" in error["error"]
+
+    def test_rejects_json_number(self, runner, mock_client):
+        with patch("qbo_accounts.cli._get_resource", return_value=MagicMock()):
+            result = runner.invoke(main, ["create", "customers", '42'])
+        assert result.exit_code != 0
+        error = json.loads(result.stderr)
+        assert "JSON object" in error["error"]
+
+
+class TestOutputStreamFormatting:
+    """Q4: _output_stream should produce valid JSON with standard formatting."""
+
+    def test_single_item_produces_valid_json(self, runner, mock_client):
+        mock_resource = MagicMock()
+        mock_resource.query_all.return_value = iter([{"Id": "1", "Name": "Only"}])
+        with patch("qbo_accounts.cli._get_resource", return_value=mock_resource):
+            result = runner.invoke(main, ["list", "customers"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert len(data) == 1
+
+    def test_no_comma_on_separate_line(self, runner, mock_client):
+        """Commas should not appear on their own line in streamed output."""
+        mock_resource = MagicMock()
+        mock_resource.query_all.return_value = iter([
+            {"Id": "1", "Name": "A"},
+            {"Id": "2", "Name": "B"},
+        ])
+        with patch("qbo_accounts.cli._get_resource", return_value=mock_resource):
+            result = runner.invoke(main, ["list", "customers"])
+        assert result.exit_code == 0
+        lines = result.output.strip().split("\n")
+        assert not any(line.strip() == "," for line in lines)
 
 
 class TestErrorOutput:

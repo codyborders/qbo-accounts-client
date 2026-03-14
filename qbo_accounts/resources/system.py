@@ -5,15 +5,17 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from ..models.base import GenericQueryResponse
-from .base import _validate_query_param
 from ..models.system import (
-    Budget,
-    CompanyInfo, CompanyInfoUpdate,
+    CompanyInfo,
+    CompanyInfoUpdate,
     Entitlements,
-    ExchangeRate, ExchangeRateUpdate,
-    Preferences, PreferencesUpdate,
+    ExchangeRate,
+    ExchangeRateUpdate,
+    Preferences,
+    PreferencesUpdate,
     TaxServiceCreate,
 )
+from .base import _validate_query_param
 
 if TYPE_CHECKING:
     from ..client import QBOClient
@@ -72,7 +74,7 @@ class CompanyInfoResource(_SystemResourceBase):
     ENTITY_KEY = "CompanyInfo"
 
     def read(self) -> CompanyInfo:
-        path = self._client._build_path("companyinfo", self._client.realm_id)
+        path = self._client._build_path("companyinfo")
         resp = self._client.request("GET", path)
         return CompanyInfo.model_validate(resp[self.ENTITY_KEY])
 

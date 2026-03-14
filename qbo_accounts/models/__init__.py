@@ -3,7 +3,7 @@
 from .accounts import Account, AccountCreate, AccountUpdate
 from .base import GenericQueryResponse, MetaData, QBOBaseModel, QBOEntity, ReferenceType
 from .namelist import (
-    Class_, ClassCreate, ClassUpdate,
+    QBOClass, ClassCreate, ClassUpdate,
     CompanyCurrency, CompanyCurrencyCreate, CompanyCurrencyUpdate,
     Customer, CustomerCreate, CustomerUpdate,
     Department, DepartmentCreate, DepartmentUpdate,
@@ -54,7 +54,7 @@ __all__ = [
     # Accounts
     "Account", "AccountCreate", "AccountUpdate",
     # Name-list
-    "Class_", "ClassCreate", "ClassUpdate",
+    "QBOClass", "ClassCreate", "ClassUpdate",
     "CompanyCurrency", "CompanyCurrencyCreate", "CompanyCurrencyUpdate",
     "Customer", "CustomerCreate", "CustomerUpdate",
     "Department", "DepartmentCreate", "DepartmentUpdate",

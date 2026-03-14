@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -11,6 +12,17 @@ class QBOBaseModel(BaseModel):
     """Base for all QBO models. Allows extra fields from the API."""
 
     model_config = ConfigDict(populate_by_name=True, extra="allow")
+
+
+class QBOInputModel(BaseModel):
+    """Base for create/update input models. Rejects unrecognized fields.
+
+    Use this for models that represent user-supplied input (create/update payloads).
+    Unlike QBOBaseModel, extra fields raise a ValidationError, catching typos
+    and invalid field names before they reach the QBO API.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
 
 class ReferenceType(QBOBaseModel):
@@ -38,7 +50,7 @@ class QBOEntity(QBOBaseModel):
 class GenericQueryResponse(QBOBaseModel):
     """Generic wrapper for QBO query endpoint responses, works with any entity key."""
 
-    items: list[dict] = Field(default_factory=list)
+    items: list[dict[str, Any]] = Field(default_factory=list)
     start_position: int = 1
     max_results: int = 0
     total_count: int | None = None

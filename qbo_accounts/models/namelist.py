@@ -2,14 +2,32 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import Field
 
-from .base import QBOBaseModel, QBOEntity, ReferenceType
+from .base import QBOEntity, QBOInputModel, ReferenceType
+
+__all__ = [
+    "QBOClass", "ClassCreate", "ClassUpdate",
+    "Customer", "CustomerCreate", "CustomerUpdate",
+    "Department", "DepartmentCreate", "DepartmentUpdate",
+    "Employee", "EmployeeCreate", "EmployeeUpdate",
+    "Item", "ItemCreate", "ItemUpdate",
+    "Vendor", "VendorCreate", "VendorUpdate",
+    "Term", "TermCreate", "TermUpdate",
+    "PaymentMethod", "PaymentMethodCreate", "PaymentMethodUpdate",
+    "TaxAgency", "TaxAgencyCreate", "TaxAgencyUpdate",
+    "CompanyCurrency", "CompanyCurrencyCreate", "CompanyCurrencyUpdate",
+    "JournalCode", "JournalCodeCreate", "JournalCodeUpdate",
+    "TaxCode", "TaxCodeCreate", "TaxCodeUpdate",
+    "TaxRate", "TaxRateCreate", "TaxRateUpdate",
+]
 
 
 # ── Class ──────────────────────────────────────────────────────────────────
 
-class Class_(QBOEntity):
+class QBOClass(QBOEntity):
     name: str | None = Field(default=None, alias="Name")
     active: bool | None = Field(default=None, alias="Active")
     sub_class: bool | None = Field(default=None, alias="SubClass")
@@ -17,13 +35,13 @@ class Class_(QBOEntity):
     parent_ref: ReferenceType | None = Field(default=None, alias="ParentRef")
 
 
-class ClassCreate(QBOBaseModel):
+class ClassCreate(QBOInputModel):
     name: str = Field(alias="Name")
     parent_ref: ReferenceType | None = Field(default=None, alias="ParentRef")
     sub_class: bool | None = Field(default=None, alias="SubClass")
 
 
-class ClassUpdate(QBOBaseModel):
+class ClassUpdate(QBOInputModel):
     id: str = Field(alias="Id")
     sync_token: str = Field(alias="SyncToken")
     name: str | None = Field(default=None, alias="Name")
@@ -42,21 +60,21 @@ class Customer(QBOEntity):
     balance: float | None = Field(default=None, alias="Balance")
     balance_with_jobs: float | None = Field(default=None, alias="BalanceWithJobs")
     fully_qualified_name: str | None = Field(default=None, alias="FullyQualifiedName")
-    primary_email_addr: dict | None = Field(default=None, alias="PrimaryEmailAddr")
-    primary_phone: dict | None = Field(default=None, alias="PrimaryPhone")
+    primary_email_addr: dict[str, Any] | None = Field(default=None, alias="PrimaryEmailAddr")
+    primary_phone: dict[str, Any] | None = Field(default=None, alias="PrimaryPhone")
 
 
-class CustomerCreate(QBOBaseModel):
+class CustomerCreate(QBOInputModel):
     display_name: str = Field(alias="DisplayName")
     given_name: str | None = Field(default=None, alias="GivenName")
     family_name: str | None = Field(default=None, alias="FamilyName")
     company_name: str | None = Field(default=None, alias="CompanyName")
-    primary_email_addr: dict | None = Field(default=None, alias="PrimaryEmailAddr")
-    primary_phone: dict | None = Field(default=None, alias="PrimaryPhone")
-    bill_addr: dict | None = Field(default=None, alias="BillAddr")
+    primary_email_addr: dict[str, Any] | None = Field(default=None, alias="PrimaryEmailAddr")
+    primary_phone: dict[str, Any] | None = Field(default=None, alias="PrimaryPhone")
+    bill_addr: dict[str, Any] | None = Field(default=None, alias="BillAddr")
 
 
-class CustomerUpdate(QBOBaseModel):
+class CustomerUpdate(QBOInputModel):
     id: str = Field(alias="Id")
     sync_token: str = Field(alias="SyncToken")
     display_name: str | None = Field(default=None, alias="DisplayName")
@@ -76,13 +94,13 @@ class Department(QBOEntity):
     parent_ref: ReferenceType | None = Field(default=None, alias="ParentRef")
 
 
-class DepartmentCreate(QBOBaseModel):
+class DepartmentCreate(QBOInputModel):
     name: str = Field(alias="Name")
     parent_ref: ReferenceType | None = Field(default=None, alias="ParentRef")
     sub_department: bool | None = Field(default=None, alias="SubDepartment")
 
 
-class DepartmentUpdate(QBOBaseModel):
+class DepartmentUpdate(QBOInputModel):
     id: str = Field(alias="Id")
     sync_token: str = Field(alias="SyncToken")
     name: str | None = Field(default=None, alias="Name")
@@ -97,19 +115,19 @@ class Employee(QBOEntity):
     given_name: str | None = Field(default=None, alias="GivenName")
     family_name: str | None = Field(default=None, alias="FamilyName")
     active: bool | None = Field(default=None, alias="Active")
-    primary_phone: dict | None = Field(default=None, alias="PrimaryPhone")
-    primary_email_addr: dict | None = Field(default=None, alias="PrimaryEmailAddr")
+    primary_phone: dict[str, Any] | None = Field(default=None, alias="PrimaryPhone")
+    primary_email_addr: dict[str, Any] | None = Field(default=None, alias="PrimaryEmailAddr")
 
 
-class EmployeeCreate(QBOBaseModel):
+class EmployeeCreate(QBOInputModel):
     given_name: str = Field(alias="GivenName")
     family_name: str = Field(alias="FamilyName")
     display_name: str | None = Field(default=None, alias="DisplayName")
-    primary_phone: dict | None = Field(default=None, alias="PrimaryPhone")
-    primary_email_addr: dict | None = Field(default=None, alias="PrimaryEmailAddr")
+    primary_phone: dict[str, Any] | None = Field(default=None, alias="PrimaryPhone")
+    primary_email_addr: dict[str, Any] | None = Field(default=None, alias="PrimaryEmailAddr")
 
 
-class EmployeeUpdate(QBOBaseModel):
+class EmployeeUpdate(QBOInputModel):
     id: str = Field(alias="Id")
     sync_token: str = Field(alias="SyncToken")
     given_name: str | None = Field(default=None, alias="GivenName")
@@ -132,7 +150,7 @@ class Item(QBOEntity):
     asset_account_ref: ReferenceType | None = Field(default=None, alias="AssetAccountRef")
 
 
-class ItemCreate(QBOBaseModel):
+class ItemCreate(QBOInputModel):
     name: str = Field(alias="Name")
     type: str = Field(alias="Type")
     income_account_ref: ReferenceType | None = Field(default=None, alias="IncomeAccountRef")
@@ -142,11 +160,10 @@ class ItemCreate(QBOBaseModel):
     unit_price: float | None = Field(default=None, alias="UnitPrice")
 
 
-class ItemUpdate(QBOBaseModel):
+class ItemUpdate(QBOInputModel):
     id: str = Field(alias="Id")
     sync_token: str = Field(alias="SyncToken")
     name: str | None = Field(default=None, alias="Name")
-    type: str | None = Field(default=None, alias="Type")
     active: bool | None = Field(default=None, alias="Active")
     unit_price: float | None = Field(default=None, alias="UnitPrice")
     description: str | None = Field(default=None, alias="Description")
@@ -161,18 +178,18 @@ class Vendor(QBOEntity):
     company_name: str | None = Field(default=None, alias="CompanyName")
     active: bool | None = Field(default=None, alias="Active")
     balance: float | None = Field(default=None, alias="Balance")
-    primary_email_addr: dict | None = Field(default=None, alias="PrimaryEmailAddr")
-    primary_phone: dict | None = Field(default=None, alias="PrimaryPhone")
+    primary_email_addr: dict[str, Any] | None = Field(default=None, alias="PrimaryEmailAddr")
+    primary_phone: dict[str, Any] | None = Field(default=None, alias="PrimaryPhone")
 
 
-class VendorCreate(QBOBaseModel):
+class VendorCreate(QBOInputModel):
     display_name: str = Field(alias="DisplayName")
     given_name: str | None = Field(default=None, alias="GivenName")
     family_name: str | None = Field(default=None, alias="FamilyName")
     company_name: str | None = Field(default=None, alias="CompanyName")
 
 
-class VendorUpdate(QBOBaseModel):
+class VendorUpdate(QBOInputModel):
     id: str = Field(alias="Id")
     sync_token: str = Field(alias="SyncToken")
     display_name: str | None = Field(default=None, alias="DisplayName")
@@ -189,12 +206,12 @@ class Term(QBOEntity):
     due_days: int | None = Field(default=None, alias="DueDays")
 
 
-class TermCreate(QBOBaseModel):
+class TermCreate(QBOInputModel):
     name: str = Field(alias="Name")
     due_days: int | None = Field(default=None, alias="DueDays")
 
 
-class TermUpdate(QBOBaseModel):
+class TermUpdate(QBOInputModel):
     id: str = Field(alias="Id")
     sync_token: str = Field(alias="SyncToken")
     name: str | None = Field(default=None, alias="Name")
@@ -210,12 +227,12 @@ class PaymentMethod(QBOEntity):
     type: str | None = Field(default=None, alias="Type")
 
 
-class PaymentMethodCreate(QBOBaseModel):
+class PaymentMethodCreate(QBOInputModel):
     name: str = Field(alias="Name")
     type: str | None = Field(default=None, alias="Type")
 
 
-class PaymentMethodUpdate(QBOBaseModel):
+class PaymentMethodUpdate(QBOInputModel):
     id: str = Field(alias="Id")
     sync_token: str = Field(alias="SyncToken")
     name: str | None = Field(default=None, alias="Name")
@@ -229,11 +246,11 @@ class TaxAgency(QBOEntity):
     active: bool | None = Field(default=None, alias="Active")
 
 
-class TaxAgencyCreate(QBOBaseModel):
+class TaxAgencyCreate(QBOInputModel):
     display_name: str = Field(alias="DisplayName")
 
 
-class TaxAgencyUpdate(QBOBaseModel):
+class TaxAgencyUpdate(QBOInputModel):
     id: str = Field(alias="Id")
     sync_token: str = Field(alias="SyncToken")
     display_name: str | None = Field(default=None, alias="DisplayName")
@@ -248,11 +265,11 @@ class CompanyCurrency(QBOEntity):
     active: bool | None = Field(default=None, alias="Active")
 
 
-class CompanyCurrencyCreate(QBOBaseModel):
+class CompanyCurrencyCreate(QBOInputModel):
     code: str = Field(alias="Code")
 
 
-class CompanyCurrencyUpdate(QBOBaseModel):
+class CompanyCurrencyUpdate(QBOInputModel):
     id: str = Field(alias="Id")
     sync_token: str = Field(alias="SyncToken")
     code: str | None = Field(default=None, alias="Code")
@@ -268,13 +285,13 @@ class JournalCode(QBOEntity):
     description: str | None = Field(default=None, alias="Description")
 
 
-class JournalCodeCreate(QBOBaseModel):
+class JournalCodeCreate(QBOInputModel):
     name: str = Field(alias="Name")
     type: str = Field(alias="Type")
     description: str | None = Field(default=None, alias="Description")
 
 
-class JournalCodeUpdate(QBOBaseModel):
+class JournalCodeUpdate(QBOInputModel):
     id: str = Field(alias="Id")
     sync_token: str = Field(alias="SyncToken")
     name: str | None = Field(default=None, alias="Name")
@@ -291,11 +308,11 @@ class TaxCode(QBOEntity):
     taxable: bool | None = Field(default=None, alias="Taxable")
 
 
-class TaxCodeCreate(QBOBaseModel):
+class TaxCodeCreate(QBOInputModel):
     name: str = Field(alias="Name")
 
 
-class TaxCodeUpdate(QBOBaseModel):
+class TaxCodeUpdate(QBOInputModel):
     id: str = Field(alias="Id")
     sync_token: str = Field(alias="SyncToken")
     name: str | None = Field(default=None, alias="Name")
@@ -312,13 +329,13 @@ class TaxRate(QBOEntity):
     agency_ref: ReferenceType | None = Field(default=None, alias="AgencyRef")
 
 
-class TaxRateCreate(QBOBaseModel):
+class TaxRateCreate(QBOInputModel):
     name: str = Field(alias="Name")
     rate_value: float = Field(alias="RateValue")
     agency_ref: ReferenceType | None = Field(default=None, alias="AgencyRef")
 
 
-class TaxRateUpdate(QBOBaseModel):
+class TaxRateUpdate(QBOInputModel):
     id: str = Field(alias="Id")
     sync_token: str = Field(alias="SyncToken")
     name: str | None = Field(default=None, alias="Name")

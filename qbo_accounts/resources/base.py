@@ -7,7 +7,7 @@ import typing
 from typing import TYPE_CHECKING, Generic, Iterator, TypeVar
 
 from ..models.base import GenericQueryResponse, QBOBaseModel, QBOEntity
-from ..pagination import auto_paginate_query
+from ..pagination import _PAGINATION_CLAUSE_RE, auto_paginate_query
 
 if TYPE_CHECKING:
     from ..client import QBOClient
@@ -19,10 +19,31 @@ TUpdate = TypeVar("TUpdate", bound=QBOBaseModel)
 _DANGEROUS_PATTERN = re.compile(r"(;|--|[/][*]|[*][/])")
 
 
+def build_query(
+    query_entity: str,
+    where: str | None = None,
+    order_by: str | None = None,
+) -> str:
+    """Build a SQL-like query string for a QBO entity.
+
+    This is a module-level function so it can be used without a resource instance.
+    """
+    sql = f"SELECT * FROM {query_entity}"
+    if where:
+        _validate_query_param(where, "where")
+        sql += f" WHERE {where}"
+    if order_by:
+        _validate_query_param(order_by, "order_by")
+        sql += f" ORDER BY {order_by}"
+    return sql
+
+
 def _validate_query_param(value: str, param_name: str) -> str:
     """Reject query parameters containing dangerous SQL-like characters."""
     if _DANGEROUS_PATTERN.search(value):
         raise ValueError(f"Invalid characters in {param_name}: {value!r}")
+    if re.search(r"\b(UNION|INSERT|UPDATE|DELETE|DROP)\b", value, re.IGNORECASE):
+        raise ValueError(f"Dangerous SQL keyword in {param_name}: {value!r}")
     return value
 
 
@@ -73,6 +94,11 @@ class BaseResource(Generic[TEntity, TCreate, TUpdate]):
         """Resolve the concrete create-model type from generic args at runtime."""
         return type(self)._resolve_generic_arg(1, "_cached_create_cls")
 
+    @property
+    def _update_cls(self) -> type[TUpdate]:
+        """Resolve the concrete update-model type from generic args at runtime."""
+        return type(self)._resolve_generic_arg(2, "_cached_update_cls")
+
     def create(self, data: TCreate) -> TEntity:
         """Create a new entity."""
         path = self._client._build_path(self.ENTITY)
@@ -99,14 +125,7 @@ class BaseResource(Generic[TEntity, TCreate, TUpdate]):
         order_by: str | None = None,
     ) -> str:
         """Build a SQL-like query string."""
-        sql = f"SELECT * FROM {self.QUERY_ENTITY}"
-        if where:
-            _validate_query_param(where, "where")
-            sql += f" WHERE {where}"
-        if order_by:
-            _validate_query_param(order_by, "order_by")
-            sql += f" ORDER BY {order_by}"
-        return sql
+        return build_query(self.QUERY_ENTITY, where=where, order_by=order_by)
 
     def query(
         self,
@@ -116,7 +135,9 @@ class BaseResource(Generic[TEntity, TCreate, TUpdate]):
         max_results: int = 100,
     ) -> GenericQueryResponse:
         """Run a single-page SQL-like query."""
+        max_results = max(1, min(max_results, 1000))
         sql = self._build_query(where, order_by)
+        sql = _PAGINATION_CLAUSE_RE.sub("", sql).strip()
         sql += f" STARTPOSITION {start_position} MAXRESULTS {max_results}"
         path = self._client._build_path("query")
         resp = self._client.request("GET", path, params={"query": sql})
@@ -137,6 +158,21 @@ class BaseResource(Generic[TEntity, TCreate, TUpdate]):
 
         for item in auto_paginate_query(execute, sql, page_size=page_size):
             yield self._entity_cls.model_validate(item)
+
+    def query_all_raw(
+        self,
+        where: str | None = None,
+        order_by: str | None = None,
+        page_size: int = 100,
+    ) -> Iterator[dict]:
+        """Auto-paginate through all matching entities, yielding raw dicts."""
+        sql = self._build_query(where, order_by)
+        path = self._client._build_path("query")
+
+        def execute(query: str) -> dict:
+            return self._client.request("GET", path, params={"query": query})
+
+        yield from auto_paginate_query(execute, sql, page_size=page_size)
 
 
 class NameListResource(BaseResource[TEntity, TCreate, TUpdate]):

@@ -8,6 +8,7 @@ from qbo_accounts.models.system import (
     PreferencesUpdate,
     TaxServiceCreate,
 )
+
 from tests.constants import BASE_URL, REALM_ID
 
 
@@ -29,8 +30,9 @@ class TestBudgetsResource:
 
 
 class TestCompanyInfoResource:
-    def test_read_returns_entity(self, client, httpx_mock):
-        url = f"{BASE_URL}/v3/company/{REALM_ID}/companyinfo/{REALM_ID}"
+    def test_read_uses_singleton_url(self, client, httpx_mock):
+        """CompanyInfo.read() should use /companyinfo without entity ID suffix."""
+        url = f"{BASE_URL}/v3/company/{REALM_ID}/companyinfo"
         httpx_mock.add_response(
             url=url,
             json={"CompanyInfo": {"Id": REALM_ID, "SyncToken": "0", "CompanyName": "Test Co"}},
