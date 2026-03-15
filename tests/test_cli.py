@@ -399,6 +399,102 @@ class TestOutputStreamFormatting:
         assert not any(line.strip() == "," for line in lines)
 
 
+class TestMakeClientTokenRefresh:
+    """Test that _make_client refreshes the token when QBO_ACCESS_TOKEN is missing."""
+
+    def test_refreshes_when_no_access_token(self):
+        env = {
+            "QBO_REALM_ID": "123",
+            "QBO_CLIENT_ID": "id",
+            "QBO_CLIENT_SECRET": "secret",
+            "QBO_REFRESH_TOKEN": "refresh_tok",
+            "QBO_BASE_URL": "https://quickbooks.api.intuit.com",
+        }
+        with patch.dict("os.environ", env, clear=True), \
+             patch("qbo_accounts.cli.load_dotenv"), \
+             patch("qbo_accounts.cli.OAuth2Auth") as MockAuth:
+            mock_auth = MockAuth.return_value
+            mock_auth.access_token = ""
+            from qbo_accounts.cli import _make_client
+            _make_client()
+            mock_auth.refresh.assert_called_once()
+
+    def test_no_refresh_when_access_token_present(self):
+        env = {
+            "QBO_REALM_ID": "123",
+            "QBO_CLIENT_ID": "id",
+            "QBO_CLIENT_SECRET": "secret",
+            "QBO_REFRESH_TOKEN": "refresh_tok",
+            "QBO_ACCESS_TOKEN": "valid_token",
+            "QBO_BASE_URL": "https://quickbooks.api.intuit.com",
+        }
+        with patch.dict("os.environ", env, clear=True), \
+             patch("qbo_accounts.cli.load_dotenv"), \
+             patch("qbo_accounts.cli.OAuth2Auth") as MockAuth:
+            mock_auth = MockAuth.return_value
+            mock_auth.access_token = "valid_token"
+            from qbo_accounts.cli import _make_client
+            _make_client()
+            mock_auth.refresh.assert_not_called()
+
+
+class TestAuthCommand:
+    """Tests for the qbo auth command."""
+
+    _VALID_ENV = {
+        "QBO_CLIENT_ID": "test_client_id",
+        "QBO_CLIENT_SECRET": "test_client_secret",
+        "QBO_REALM_ID": "123456",
+        "QBO_BASE_URL": "https://quickbooks.api.intuit.com",
+    }
+
+    def test_auth_opens_browser_and_exchanges_code(self, runner):
+        """Test the full auth flow: browser open, code exchange, token save."""
+        token_response = {
+            "access_token": "new_access",
+            "refresh_token": "new_refresh",
+            "expires_in": 3600,
+            "token_type": "bearer",
+        }
+
+        with patch.dict("os.environ", self._VALID_ENV, clear=True), \
+             patch("qbo_accounts.cli.load_dotenv"), \
+             patch("qbo_accounts.cli.webbrowser.open") as mock_open, \
+             patch("qbo_accounts.cli.run_callback_server", return_value="auth_code_123"), \
+             patch("qbo_accounts.cli.exchange_code", return_value=token_response), \
+             patch("qbo_accounts.cli._persist_tokens") as mock_persist:
+            result = runner.invoke(main, ["auth"])
+
+        assert result.exit_code == 0
+        mock_open.assert_called_once()
+        mock_persist.assert_called_once_with("new_access", "new_refresh")
+        assert "Authorization successful" in result.output
+
+    def test_auth_missing_client_credentials(self, runner):
+        """Test auth fails gracefully when client ID/secret are missing."""
+        env = {"QBO_REALM_ID": "123"}
+        with patch.dict("os.environ", env, clear=True), \
+             patch("qbo_accounts.cli.load_dotenv"):
+            result = runner.invoke(main, ["auth"])
+
+        assert result.exit_code != 0
+        error = json.loads(result.stderr)
+        assert "Missing" in error["error"]
+
+    def test_auth_exchange_failure(self, runner):
+        """Test auth handles token exchange errors."""
+        with patch.dict("os.environ", self._VALID_ENV, clear=True), \
+             patch("qbo_accounts.cli.load_dotenv"), \
+             patch("qbo_accounts.cli.webbrowser.open"), \
+             patch("qbo_accounts.cli.run_callback_server", return_value="auth_code_123"), \
+             patch("qbo_accounts.cli.exchange_code", side_effect=RuntimeError("Exchange failed")):
+            result = runner.invoke(main, ["auth"])
+
+        assert result.exit_code != 0
+        error = json.loads(result.stderr)
+        assert "Exchange failed" in error["error"]
+
+
 class TestErrorOutput:
     def test_missing_env_vars(self, runner):
         with patch.dict("os.environ", {}, clear=True), \

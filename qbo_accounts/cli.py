@@ -6,6 +6,7 @@ import inspect
 import json
 import os
 import sys
+import webbrowser
 from typing import Any, Iterator, NoReturn
 from urllib.parse import urlparse
 
@@ -15,6 +16,7 @@ from pydantic import BaseModel
 
 from .auth import OAuth2Auth
 from .client import SANDBOX_BASE_URL, QBOClient, _RESOURCE_REGISTRY
+from .oauth import build_auth_url, exchange_code, run_callback_server
 from .resources.base import (
     BaseResource,
     NameListResource,
@@ -57,6 +59,8 @@ def _make_client() -> QBOClient:
         refresh_token=os.environ["QBO_REFRESH_TOKEN"],
         on_refresh=_persist_tokens,
     )
+    if not auth.access_token:
+        auth.refresh()
     return QBOClient(
         realm_id=os.environ["QBO_REALM_ID"],
         auth=auth,
@@ -269,3 +273,34 @@ def company_info() -> None:
     with _make_client() as client:
         result = client.company_info.read()
         _output(result)
+
+
+@main.command()
+def auth() -> None:
+    """Authorize with QuickBooks Online via OAuth2 browser flow."""
+    load_dotenv()
+    missing = [v for v in ("QBO_CLIENT_ID", "QBO_CLIENT_SECRET") if not os.environ.get(v)]
+    if missing:
+        _error(f"Missing required env vars: {', '.join(missing)}")
+
+    client_id = os.environ["QBO_CLIENT_ID"]
+    client_secret = os.environ["QBO_CLIENT_SECRET"]
+
+    url = build_auth_url(client_id)
+    click.echo(f"Opening browser for authorization...\n{url}")
+    webbrowser.open(url)
+
+    click.echo(f"Waiting for callback on http://localhost:8484/callback ...")
+    try:
+        code = run_callback_server()
+    except RuntimeError as e:
+        _error(str(e))
+
+    click.echo("Exchanging authorization code for tokens...")
+    try:
+        tokens = exchange_code(client_id, client_secret, code)
+    except Exception as e:
+        _error(str(e))
+
+    _persist_tokens(tokens["access_token"], tokens["refresh_token"])
+    click.echo("Authorization successful. Tokens saved to .env")
