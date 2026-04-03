@@ -196,6 +196,7 @@ class VendorUpdate(QBOInputModel):
     active: bool | None = Field(default=None, alias="Active")
     given_name: str | None = Field(default=None, alias="GivenName")
     family_name: str | None = Field(default=None, alias="FamilyName")
+    company_name: str | None = Field(default=None, alias="CompanyName")
 
 
 # ── Term ───────────────────────────────────────────────────────────────────

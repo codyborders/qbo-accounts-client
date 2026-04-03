@@ -135,3 +135,18 @@ class TestTaxServiceResource:
         )
         result = client.tax_service.create(data)
         assert result["TaxCode"]["Id"] == "99"
+
+
+class TestSystemResourcePaginationStripping:
+    """Bug fix: _execute_query should strip pagination clauses from user input."""
+
+    def test_budgets_strips_pagination_from_where(self, client, httpx_mock):
+        httpx_mock.add_response(
+            status_code=200,
+            json={"QueryResponse": {"Budget": []}},
+        )
+        client.budgets.query(where="Id = '1' STARTPOSITION 1 MAXRESULTS 999")
+        request = httpx_mock.get_request()
+        query_param = request.url.params["query"]
+        assert query_param.count("STARTPOSITION") == 1
+        assert query_param.count("MAXRESULTS") == 1

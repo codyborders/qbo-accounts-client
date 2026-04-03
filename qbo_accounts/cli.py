@@ -11,6 +11,7 @@ from typing import Any, Iterator, NoReturn
 from urllib.parse import urlparse
 
 import click
+import httpx
 from dotenv import find_dotenv, load_dotenv, set_key
 from pydantic import BaseModel
 
@@ -145,14 +146,16 @@ def read(entity: str, entity_id: str | None) -> None:
 
         # Check whether read() requires a positional argument (e.g. entity_id)
         sig = inspect.signature(resource.read)
-        requires_id = any(
-            p.default is inspect.Parameter.empty
-            and p.name != "self"
+        positional_params = [
+            p for p in sig.parameters.values()
+            if p.name != "self"
             and p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
-            for p in sig.parameters.values()
-        )
+        ]
+        requires_id = any(p.default is inspect.Parameter.empty for p in positional_params)
         if requires_id and entity_id is None:
             _error(f"'{entity}' requires an ID argument for read")
+        if not positional_params and entity_id is not None:
+            _error(f"'{entity}' does not accept an ID argument")
 
         result = resource.read(entity_id) if entity_id is not None else resource.read()
         _output(result)
@@ -286,21 +289,21 @@ def auth() -> None:
     client_id = os.environ["QBO_CLIENT_ID"]
     client_secret = os.environ["QBO_CLIENT_SECRET"]
 
-    url = build_auth_url(client_id)
+    url, state = build_auth_url(client_id)
     click.echo(f"Opening browser for authorization...\n{url}")
     webbrowser.open(url)
 
     click.echo(f"Waiting for callback on http://localhost:8484/callback ...")
     try:
-        code = run_callback_server()
+        code = run_callback_server(state)
     except RuntimeError as e:
         _error(str(e))
 
     click.echo("Exchanging authorization code for tokens...")
     try:
         tokens = exchange_code(client_id, client_secret, code)
-    except Exception as e:
-        _error(str(e))
+    except httpx.HTTPError as e:
+        _error(f"Token exchange failed: {e}")
 
     _persist_tokens(tokens["access_token"], tokens["refresh_token"])
     click.echo("Authorization successful. Tokens saved to .env")

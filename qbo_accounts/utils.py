@@ -22,7 +22,8 @@ class RateLimiter:
         if retry_after:
             # Try as numeric seconds
             try:
-                time.sleep(min(float(retry_after), MAX_RETRY_AFTER))
+                wait = max(0.0, min(float(retry_after), MAX_RETRY_AFTER))
+                time.sleep(wait)
                 return
             except (ValueError, TypeError):
                 pass

@@ -179,6 +179,24 @@ class QBOClient:
         request = self.auth.apply(request)
         return self._client.send(request)
 
+    def _retry_on_rate_limit(
+        self,
+        response: httpx.Response,
+        method: str,
+        path: str,
+        params: dict[str, Any] | None,
+        json: Any | None,
+        headers: dict[str, str],
+        max_retries: int = 3,
+    ) -> httpx.Response:
+        """Retry a request up to ``max_retries`` times on 429 responses."""
+        for _ in range(max_retries):
+            if response.status_code != 429:
+                break
+            self._rate_limiter.wait_if_needed(dict(response.headers))
+            response = self._send_authenticated(method, path, params, json, headers)
+        return response
+
     def request(
         self,
         method: str,
@@ -198,19 +216,13 @@ class QBOClient:
         }
 
         response = self._send_authenticated(method, path, params, json, headers)
-
-        # Handle 429 with retry loop
-        max_retries = 3
-        for _ in range(max_retries):
-            if response.status_code != 429:
-                break
-            self._rate_limiter.wait_if_needed(dict(response.headers))
-            response = self._send_authenticated(method, path, params, json, headers)
+        response = self._retry_on_rate_limit(response, method, path, params, json, headers)
 
         # Auto-refresh on 401 (covers both initial 401 and post-429-retry 401)
         if response.status_code == 401 and isinstance(self.auth, OAuth2Auth):
             self.auth.refresh()
             response = self._send_authenticated(method, path, params, json, headers)
+            response = self._retry_on_rate_limit(response, method, path, params, json, headers)
 
         if not response.is_success:
             try:

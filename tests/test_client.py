@@ -301,3 +301,59 @@ class TestOAuth2HTTPSEnforcement:
                 refresh_token="refresh",
                 token_url="http://evil.example.com/token",
             )
+
+
+class TestRetryAfterTokenRefresh:
+    """Bug fix: 429 responses after OAuth token refresh should be retried."""
+
+    def test_429_after_refresh_is_retried(self, httpx_mock: HTTPXMock):
+        auth = OAuth2Auth(
+            client_id="id", client_secret="secret",
+            access_token="expired", refresh_token="refresh",
+        )
+        client = QBOClient(realm_id=REALM_ID, auth=auth, base_url=BASE_URL)
+        # 1st: 401 triggers refresh
+        httpx_mock.add_response(
+            status_code=401,
+            json={"Fault": {"Error": [{"Message": "Auth failed"}]}},
+        )
+        # 2nd: token refresh succeeds
+        httpx_mock.add_response(
+            json={"access_token": "new-token", "refresh_token": "new-refresh"},
+        )
+        # 3rd: post-refresh request gets 429
+        httpx_mock.add_response(
+            status_code=429,
+            headers={"Retry-After": "0"},
+            json={"Fault": {"Error": [{"Message": "Throttled"}]}},
+        )
+        # 4th: retry after 429 succeeds
+        httpx_mock.add_response(
+            status_code=200,
+            json={"Account": {"Id": "1", "SyncToken": "0"}},
+        )
+        result = client.request("GET", f"/v3/company/{REALM_ID}/account/1")
+        assert result["Account"]["Id"] == "1"
+        client.close()
+
+
+class TestAuthRefreshRaisesQBOError:
+    """Bug fix: token refresh failures should raise AuthenticationError, not httpx.HTTPStatusError."""
+
+    def test_refresh_failure_raises_authentication_error(self, httpx_mock: HTTPXMock):
+        auth = OAuth2Auth(
+            client_id="id", client_secret="secret",
+            access_token="expired", refresh_token="bad-refresh",
+        )
+        client = QBOClient(realm_id=REALM_ID, auth=auth, base_url=BASE_URL)
+        # 1st: 401 triggers refresh
+        httpx_mock.add_response(
+            status_code=401,
+            json={"Fault": {"Error": [{"Message": "Auth failed"}]}},
+        )
+        # 2nd: token refresh POST fails with 400
+        httpx_mock.add_response(status_code=400, json={"error": "invalid_grant"})
+        # Should raise AuthenticationError, not httpx.HTTPStatusError.
+        with pytest.raises(AuthenticationError, match="Token refresh failed"):
+            client.request("GET", f"/v3/company/{REALM_ID}/account/1")
+        client.close()

@@ -74,3 +74,28 @@ class TestRateLimiterDefaultFallback:
         limiter.wait_if_needed({})
 
         mock_time.sleep.assert_called_once_with(DEFAULT_RETRY_DELAY)
+
+
+class TestRateLimiterNegativeRetryAfter:
+    """Bug fix: negative Retry-After should be clamped to 0, not raise ValueError."""
+
+    @patch("qbo_accounts.utils.time")
+    def test_negative_retry_after_clamps_to_zero(self, mock_time):
+        mock_time.time.return_value = 1740700000.0
+        mock_time.sleep = MagicMock()
+
+        limiter = RateLimiter()
+        limiter.wait_if_needed({"Retry-After": "-5"})
+
+        # Should sleep for 0 seconds, not fall through to DEFAULT_RETRY_DELAY.
+        mock_time.sleep.assert_called_once_with(0.0)
+
+    @patch("qbo_accounts.utils.time")
+    def test_zero_retry_after_sleeps_zero(self, mock_time):
+        mock_time.time.return_value = 1740700000.0
+        mock_time.sleep = MagicMock()
+
+        limiter = RateLimiter()
+        limiter.wait_if_needed({"Retry-After": "0"})
+
+        mock_time.sleep.assert_called_once_with(0.0)

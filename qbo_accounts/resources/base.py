@@ -7,7 +7,7 @@ import typing
 from typing import TYPE_CHECKING, Generic, Iterator, TypeVar
 
 from ..models.base import GenericQueryResponse, QBOBaseModel, QBOEntity
-from ..pagination import _PAGINATION_CLAUSE_RE, auto_paginate_query
+from ..pagination import auto_paginate_query, strip_pagination_clauses
 
 if TYPE_CHECKING:
     from ..client import QBOClient
@@ -137,7 +137,7 @@ class BaseResource(Generic[TEntity, TCreate, TUpdate]):
         """Run a single-page SQL-like query."""
         max_results = max(1, min(max_results, 1000))
         sql = self._build_query(where, order_by)
-        sql = _PAGINATION_CLAUSE_RE.sub("", sql).strip()
+        sql = strip_pagination_clauses(sql)
         sql += f" STARTPOSITION {start_position} MAXRESULTS {max_results}"
         path = self._client._build_path("query")
         resp = self._client.request("GET", path, params={"query": sql})

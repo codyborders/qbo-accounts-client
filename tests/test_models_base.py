@@ -59,3 +59,26 @@ class TestGenericQueryResponseTypedDict:
         }
         result = GenericQueryResponse.from_qbo_response(data, "Account")
         assert len(result.items) == 2
+
+
+class TestFromQboResponseNullEntity:
+    """Bug fix: from_qbo_response should handle null entity values gracefully."""
+
+    def test_null_entity_value_returns_empty_items(self):
+        """When the entity key exists but has a null value, items should be empty."""
+        data = {"QueryResponse": {"Account": None}}
+        result = GenericQueryResponse.from_qbo_response(data, "Account")
+        assert result.items == []
+        assert result.max_results == 0
+
+    def test_missing_entity_key_returns_empty_items(self):
+        """When the entity key is missing entirely, items should be empty."""
+        data = {"QueryResponse": {}}
+        result = GenericQueryResponse.from_qbo_response(data, "Account")
+        assert result.items == []
+
+    def test_missing_query_response_key(self):
+        """When QueryResponse is missing, should return empty response."""
+        data = {}
+        result = GenericQueryResponse.from_qbo_response(data, "Account")
+        assert result.items == []

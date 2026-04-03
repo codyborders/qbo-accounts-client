@@ -18,29 +18,44 @@ from qbo_accounts.oauth import (
 
 
 class TestBuildAuthUrl:
+    def test_returns_url_and_state_tuple(self):
+        result = build_auth_url("cid")
+        assert isinstance(result, tuple)
+        assert len(result) == 2
+
     def test_contains_client_id(self):
-        url = build_auth_url("my_client_id")
+        url, _state = build_auth_url("my_client_id")
         assert "client_id=my_client_id" in url
 
     def test_contains_redirect_uri(self):
-        url = build_auth_url("cid")
+        url, _state = build_auth_url("cid")
         assert "redirect_uri=" in url
 
     def test_contains_response_type_code(self):
-        url = build_auth_url("cid")
+        url, _state = build_auth_url("cid")
         assert "response_type=code" in url
 
     def test_contains_accounting_scope(self):
-        url = build_auth_url("cid")
+        url, _state = build_auth_url("cid")
         assert "com.intuit.quickbooks.accounting" in url
 
     def test_contains_state_parameter(self):
-        url = build_auth_url("cid")
-        assert "state=" in url
+        url, state = build_auth_url("cid")
+        assert f"state={state}" in url
 
     def test_starts_with_intuit_auth_url(self):
-        url = build_auth_url("cid")
+        url, _state = build_auth_url("cid")
         assert url.startswith(_INTUIT_AUTH_URL)
+
+    def test_state_is_nonempty_string(self):
+        _url, state = build_auth_url("cid")
+        assert isinstance(state, str)
+        assert len(state) > 0
+
+    def test_state_differs_between_calls(self):
+        _url1, state1 = build_auth_url("cid")
+        _url2, state2 = build_auth_url("cid")
+        assert state1 != state2
 
 
 class TestExchangeCode:

@@ -59,7 +59,7 @@ class GenericQueryResponse(QBOBaseModel):
     def from_qbo_response(cls, data: dict, entity_key: str) -> GenericQueryResponse:
         """Parse raw QBO QueryResponse JSON using the given entity key."""
         qr = data.get("QueryResponse", {})
-        items_data = qr.get(entity_key, [])
+        items_data = qr.get(entity_key) or []
         return cls(
             items=items_data,
             start_position=qr.get("startPosition", 1),
