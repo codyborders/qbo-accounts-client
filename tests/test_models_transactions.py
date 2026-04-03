@@ -53,6 +53,33 @@ class TestTransactionInputModelValidation:
         assert b.model_extra.get("UnknownField") == "ok"
 
 
+class TestTimeActivityCreateCustomerRef:
+    """Bug fix: TimeActivityCreate was missing customer_ref field."""
+
+    def test_accepts_customer_ref(self):
+        from qbo_accounts.models.transactions import TimeActivityCreate
+        ta = TimeActivityCreate(
+            NameOf="Employee",
+            CustomerRef={"value": "42", "name": "Test Customer"},
+        )
+        assert ta.customer_ref is not None
+        assert ta.customer_ref.value == "42"
+
+    def test_customer_ref_is_optional(self):
+        from qbo_accounts.models.transactions import TimeActivityCreate
+        ta = TimeActivityCreate(NameOf="Employee")
+        assert ta.customer_ref is None
+
+    def test_customer_ref_serializes(self):
+        from qbo_accounts.models.transactions import TimeActivityCreate
+        ta = TimeActivityCreate(
+            NameOf="Employee",
+            CustomerRef={"value": "42"},
+        )
+        data = ta.model_dump(by_alias=True, exclude_none=True)
+        assert data["CustomerRef"]["value"] == "42"
+
+
 class TestTransactionAllExports:
     """Q6: qbo_accounts/models/transactions.py should define __all__."""
 

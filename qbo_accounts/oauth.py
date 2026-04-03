@@ -20,20 +20,28 @@ _CALLBACK_PORT = 8484
 _REDIRECT_URI = f"http://localhost:{_CALLBACK_PORT}/callback"
 
 
-def build_auth_url(client_id: str) -> str:
-    """Build the Intuit OAuth2 authorization URL."""
+def build_auth_url(client_id: str) -> tuple[str, str]:
+    """Build the Intuit OAuth2 authorization URL.
+
+    Returns a (url, state) tuple. The caller must store the state value
+    and pass it to ``run_callback_server`` for CSRF validation.
+    """
+    state = secrets.token_urlsafe(16)
     params = {
         "client_id": client_id,
         "redirect_uri": _REDIRECT_URI,
         "response_type": "code",
         "scope": "com.intuit.quickbooks.accounting",
-        "state": secrets.token_urlsafe(16),
+        "state": state,
     }
-    return f"{_INTUIT_AUTH_URL}?{urlencode(params)}"
+    return f"{_INTUIT_AUTH_URL}?{urlencode(params)}", state
 
 
-def run_callback_server() -> str:
+def run_callback_server(expected_state: str) -> str:
     """Start a local HTTP server and wait for the OAuth callback.
+
+    Validates the returned ``state`` parameter against ``expected_state``
+    to protect against CSRF attacks (RFC 6749 Section 10.12).
 
     Returns the authorization code from the callback query string.
     """
@@ -42,7 +50,16 @@ def run_callback_server() -> str:
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
             qs = parse_qs(urlparse(self.path).query)
-            if "code" in qs:
+            returned_state = qs.get("state", [None])[0]
+            if returned_state != expected_state:
+                result["error"] = "state_mismatch"
+                self.send_response(403)
+                self.send_header("Content-Type", "text/html")
+                self.end_headers()
+                self.wfile.write(
+                    b"<h1>Authorization failed: state parameter mismatch (possible CSRF)</h1>"
+                )
+            elif "code" in qs:
                 result["code"] = qs["code"][0]
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html")

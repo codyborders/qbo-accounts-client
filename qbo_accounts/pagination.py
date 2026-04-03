@@ -9,6 +9,29 @@ _PAGINATION_CLAUSE_RE = re.compile(
     r"\s+(STARTPOSITION|MAXRESULTS)\s+\d+", re.IGNORECASE
 )
 
+# Splits a QBO SQL string into segments that are inside single quotes
+# versus outside, respecting escaped quotes ('').
+_QUOTED_SEGMENT_RE = re.compile(r"('(?:''|[^'])*')")
+
+
+def strip_pagination_clauses(sql: str) -> str:
+    """Remove STARTPOSITION/MAXRESULTS clauses only outside quoted strings.
+
+    QBO SQL uses single-quoted string literals with '' as the escape
+    sequence for a literal quote. This function splits the query on
+    quoted boundaries so the pagination regex is never applied to
+    user data inside string literals.
+    """
+    segments = _QUOTED_SEGMENT_RE.split(sql)
+    result_parts: list[str] = []
+    for segment in segments:
+        if segment.startswith("'"):
+            # Inside a quoted string -- preserve verbatim.
+            result_parts.append(segment)
+        else:
+            result_parts.append(_PAGINATION_CLAUSE_RE.sub("", segment))
+    return "".join(result_parts).strip()
+
 
 def auto_paginate_query(
     execute_query: Callable[[str], dict[str, Any]],
@@ -27,8 +50,8 @@ def auto_paginate_query(
         base_query: SQL-like query (e.g. ``"SELECT * FROM Account"``).
         page_size: Number of items per page request.
     """
-    # Strip any existing pagination clauses from the query
-    cleaned = _PAGINATION_CLAUSE_RE.sub("", base_query).strip()
+    # Strip any existing pagination clauses, preserving quoted strings.
+    cleaned = strip_pagination_clauses(base_query)
 
     start = 1
     while True:

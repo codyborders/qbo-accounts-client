@@ -47,6 +47,26 @@ class TestNamelistInputModelValidation:
         assert c.model_extra.get("UnknownApiField") == "ok"
 
 
+class TestVendorUpdateCompanyName:
+    """Bug fix: VendorUpdate was missing company_name field."""
+
+    def test_vendor_update_accepts_company_name(self):
+        from qbo_accounts.models.namelist import VendorUpdate
+        vendor = VendorUpdate(Id="1", SyncToken="0", CompanyName="Acme Corp")
+        assert vendor.company_name == "Acme Corp"
+
+    def test_vendor_update_company_name_serializes(self):
+        from qbo_accounts.models.namelist import VendorUpdate
+        vendor = VendorUpdate(Id="1", SyncToken="0", CompanyName="Acme Corp")
+        data = vendor.model_dump(by_alias=True, exclude_none=True)
+        assert data["CompanyName"] == "Acme Corp"
+
+    def test_vendor_update_company_name_is_optional(self):
+        from qbo_accounts.models.namelist import VendorUpdate
+        vendor = VendorUpdate(Id="1", SyncToken="0")
+        assert vendor.company_name is None
+
+
 class TestNamelistAllExports:
     """Q6: qbo_accounts/models/namelist.py should define __all__."""
 

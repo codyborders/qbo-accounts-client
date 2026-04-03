@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 from click.testing import CliRunner
 from pydantic import BaseModel
@@ -97,7 +98,13 @@ class TestEntitiesCommand:
 class TestReadCommand:
     def test_read_entity(self, runner, mock_client):
         mock_resource = MagicMock()
-        mock_resource.read.return_value = {"Id": "42", "DisplayName": "Acme"}
+        # Give read() a real callable with the correct signature so
+        # inspect.signature() sees a required entity_id parameter.
+        call_log = []
+        def _read_with_id(entity_id: str) -> dict:
+            call_log.append(entity_id)
+            return {"Id": "42", "DisplayName": "Acme"}
+        mock_resource.read = _read_with_id
         mock_client.customers = mock_resource
 
         with patch("qbo_accounts.cli._get_resource", return_value=mock_resource):
@@ -106,7 +113,7 @@ class TestReadCommand:
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["Id"] == "42"
-        mock_resource.read.assert_called_once_with("42")
+        assert call_log == ["42"]
 
     def test_read_without_id(self, runner, mock_client):
         mock_resource = MagicMock()
@@ -140,6 +147,19 @@ class TestReadCommand:
         assert result.exit_code != 0
         error = json.loads(result.stderr)
         assert "requires an ID" in error["error"]
+
+    def test_read_singleton_with_id_returns_json_error(self, runner, mock_client):
+        """Singleton resources should reject ID arguments with a JSON error."""
+        mock_resource = MagicMock()
+        # A singleton read() takes no positional arguments.
+        mock_resource.read = lambda: {"Preferences": {}}
+
+        with patch("qbo_accounts.cli._get_resource", return_value=mock_resource):
+            result = runner.invoke(main, ["read", "preferences", "123"])
+
+        assert result.exit_code != 0
+        error = json.loads(result.stderr)
+        assert "does not accept an ID" in error["error"]
 
 
 class TestQueryCommand:
@@ -482,12 +502,17 @@ class TestAuthCommand:
         assert "Missing" in error["error"]
 
     def test_auth_exchange_failure(self, runner):
-        """Test auth handles token exchange errors."""
+        """Test auth handles token exchange errors (HTTP failures from Intuit)."""
+        mock_request = httpx.Request("POST", "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer")
+        mock_response = httpx.Response(status_code=400, request=mock_request)
+        exchange_error = httpx.HTTPStatusError(
+            "Exchange failed", request=mock_request, response=mock_response,
+        )
         with patch.dict("os.environ", self._VALID_ENV, clear=True), \
              patch("qbo_accounts.cli.load_dotenv"), \
              patch("qbo_accounts.cli.webbrowser.open"), \
              patch("qbo_accounts.cli.run_callback_server", return_value="auth_code_123"), \
-             patch("qbo_accounts.cli.exchange_code", side_effect=RuntimeError("Exchange failed")):
+             patch("qbo_accounts.cli.exchange_code", side_effect=exchange_error):
             result = runner.invoke(main, ["auth"])
 
         assert result.exit_code != 0

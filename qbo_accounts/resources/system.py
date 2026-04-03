@@ -15,7 +15,8 @@ from ..models.system import (
     PreferencesUpdate,
     TaxServiceCreate,
 )
-from .base import _validate_query_param
+from ..pagination import strip_pagination_clauses
+from .base import build_query
 
 if TYPE_CHECKING:
     from ..client import QBOClient
@@ -37,13 +38,8 @@ class _SystemResourceBase:
         max_results: int = 100,
     ) -> GenericQueryResponse:
         """Build and execute a SQL-like query, returning a generic response."""
-        sql = f"SELECT * FROM {query_entity}"
-        if where:
-            _validate_query_param(where, "where")
-            sql += f" WHERE {where}"
-        if order_by:
-            _validate_query_param(order_by, "order_by")
-            sql += f" ORDER BY {order_by}"
+        sql = build_query(query_entity, where=where, order_by=order_by)
+        sql = strip_pagination_clauses(sql)
         sql += f" STARTPOSITION {start_position} MAXRESULTS {max_results}"
         path = self._client._build_path("query")
         resp = self._client.request("GET", path, params={"query": sql})

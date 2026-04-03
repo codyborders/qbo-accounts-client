@@ -8,7 +8,24 @@ from pydantic import Field
 
 from .base import QBOEntity, QBOInputModel, ReferenceType
 
-__all__ = ["Bill", "BillCreate", "BillUpdate", "BillPayment", "BillPaymentCreate", "BillPaymentUpdate", "CreditMemo", "CreditMemoCreate", "CreditMemoUpdate", "Deposit", "DepositCreate", "DepositUpdate", "Estimate", "EstimateCreate", "EstimateUpdate", "Invoice", "InvoiceCreate", "InvoiceUpdate", "JournalEntry", "JournalEntryCreate", "JournalEntryUpdate", "Payment", "PaymentCreate", "PaymentUpdate", "Purchase", "PurchaseCreate", "PurchaseUpdate", "PurchaseOrder", "PurchaseOrderCreate", "PurchaseOrderUpdate", "RefundReceipt", "RefundReceiptCreate", "RefundReceiptUpdate", "SalesReceipt", "SalesReceiptCreate", "SalesReceiptUpdate", "TimeActivity", "TimeActivityCreate", "TimeActivityUpdate", "Transfer", "TransferCreate", "TransferUpdate", "VendorCredit", "VendorCreditCreate", "VendorCreditUpdate", "Attachable", "AttachableCreate", "AttachableUpdate"]
+__all__ = [
+    "Bill", "BillCreate", "BillUpdate",
+    "BillPayment", "BillPaymentCreate", "BillPaymentUpdate",
+    "CreditMemo", "CreditMemoCreate", "CreditMemoUpdate",
+    "Deposit", "DepositCreate", "DepositUpdate",
+    "Estimate", "EstimateCreate", "EstimateUpdate",
+    "Invoice", "InvoiceCreate", "InvoiceUpdate",
+    "JournalEntry", "JournalEntryCreate", "JournalEntryUpdate",
+    "Payment", "PaymentCreate", "PaymentUpdate",
+    "Purchase", "PurchaseCreate", "PurchaseUpdate",
+    "PurchaseOrder", "PurchaseOrderCreate", "PurchaseOrderUpdate",
+    "RefundReceipt", "RefundReceiptCreate", "RefundReceiptUpdate",
+    "SalesReceipt", "SalesReceiptCreate", "SalesReceiptUpdate",
+    "TimeActivity", "TimeActivityCreate", "TimeActivityUpdate",
+    "Transfer", "TransferCreate", "TransferUpdate",
+    "VendorCredit", "VendorCreditCreate", "VendorCreditUpdate",
+    "Attachable", "AttachableCreate", "AttachableUpdate",
+]
 
 
 # ── Bill ───────────────────────────────────────────────────────────────────
@@ -331,6 +348,7 @@ class TimeActivityCreate(QBOInputModel):
     minutes: int | None = Field(default=None, alias="Minutes")
     employee_ref: ReferenceType | None = Field(default=None, alias="EmployeeRef")
     vendor_ref: ReferenceType | None = Field(default=None, alias="VendorRef")
+    customer_ref: ReferenceType | None = Field(default=None, alias="CustomerRef")
 
 
 class TimeActivityUpdate(QBOInputModel):

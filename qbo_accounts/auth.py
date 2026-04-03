@@ -8,6 +8,8 @@ from typing import Any, Callable
 
 import httpx
 
+from .exceptions import AuthenticationError
+
 INTUIT_TOKEN_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer"
 
 
@@ -76,7 +78,13 @@ class OAuth2Auth(AuthHandler):
                 "refresh_token": self.refresh_token,
             },
         )
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            raise AuthenticationError(
+                message=f"Token refresh failed: HTTP {response.status_code}",
+                status_code=response.status_code,
+            ) from exc
         data = response.json()
 
         self.access_token = data["access_token"]
