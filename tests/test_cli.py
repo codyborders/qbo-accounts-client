@@ -490,6 +490,41 @@ class TestAuthCommand:
         mock_persist.assert_called_once_with("new_access", "new_refresh")
         assert "Authorization successful" in result.output
 
+    def test_auth_uses_configured_redirect_uri(self, runner):
+        """Custom redirect URIs must be used for both auth and token exchange."""
+        token_response = {
+            "access_token": "new_access",
+            "refresh_token": "new_refresh",
+            "expires_in": 3600,
+            "token_type": "bearer",
+        }
+        redirect_uri = "https://mcp-vm.tail744e10.ts.net/callback"
+        env = {**self._VALID_ENV, "QBO_REDIRECT_URI": redirect_uri}
+
+        with patch.dict("os.environ", env, clear=True), \
+             patch("qbo_accounts.cli.load_dotenv"), \
+             patch(
+                 "qbo_accounts.cli.build_auth_url",
+                 return_value=("https://intuit.example/auth", "state-token"),
+             ) as mock_build_auth_url, \
+             patch("qbo_accounts.cli.webbrowser.open", return_value=False), \
+             patch("qbo_accounts.cli.run_callback_server", return_value="auth_code_123") as mock_run_callback_server, \
+             patch("qbo_accounts.cli.exchange_code", return_value=token_response) as mock_exchange_code, \
+             patch("qbo_accounts.cli._persist_tokens") as mock_persist:
+            result = runner.invoke(main, ["auth"])
+
+        assert result.exit_code == 0
+        mock_build_auth_url.assert_called_once_with("test_client_id", redirect_uri=redirect_uri)
+        mock_run_callback_server.assert_called_once_with("state-token", callback_path="/callback")
+        mock_exchange_code.assert_called_once_with(
+            "test_client_id",
+            "test_client_secret",
+            "auth_code_123",
+            redirect_uri=redirect_uri,
+        )
+        mock_persist.assert_called_once_with("new_access", "new_refresh")
+        assert "Browser was not opened automatically" in result.output
+
     def test_auth_missing_client_credentials(self, runner):
         """Test auth fails gracefully when client ID/secret are missing."""
         env = {"QBO_REALM_ID": "123"}
@@ -518,6 +553,17 @@ class TestAuthCommand:
         assert result.exit_code != 0
         error = json.loads(result.stderr)
         assert "Exchange failed" in error["error"]
+
+    def test_auth_rejects_invalid_redirect_uri(self, runner):
+        env = {**self._VALID_ENV, "QBO_REDIRECT_URI": "ftp://bad.example.com/callback"}
+
+        with patch.dict("os.environ", env, clear=True), \
+             patch("qbo_accounts.cli.load_dotenv"):
+            result = runner.invoke(main, ["auth"])
+
+        assert result.exit_code != 0
+        error = json.loads(result.stderr)
+        assert "http or https" in error["error"]
 
 
 class TestErrorOutput:

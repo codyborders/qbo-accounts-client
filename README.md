@@ -203,6 +203,7 @@ Environment variables:
 | `QBO_REFRESH_TOKEN` | OAuth2 refresh token |
 | `QBO_CLIENT_ID` | OAuth2 client ID |
 | `QBO_CLIENT_SECRET` | OAuth2 client secret |
+| `QBO_REDIRECT_URI` | OAuth2 redirect URI. Defaults to `http://localhost:8484/callback` for local development. Set this to your public HTTPS callback in production. |
 
 ## Development
 
@@ -210,3 +211,7 @@ Environment variables:
 pip install -e ".[dev]"
 pytest
 ```
+
+For production QuickBooks apps, Intuit requires an HTTPS redirect URI. Set `QBO_REDIRECT_URI`
+to the exact public callback URL registered in the Intuit app. The CLI uses the same redirect
+URI for both the authorization request and the token exchange so the values stay aligned.

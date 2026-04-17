@@ -17,7 +17,13 @@ from pydantic import BaseModel
 
 from .auth import OAuth2Auth
 from .client import SANDBOX_BASE_URL, QBOClient, _RESOURCE_REGISTRY
-from .oauth import build_auth_url, exchange_code, run_callback_server
+from .oauth import (
+    _REDIRECT_URI,
+    build_auth_url,
+    exchange_code,
+    run_callback_server,
+    validate_redirect_uri,
+)
 from .resources.base import (
     BaseResource,
     NameListResource,
@@ -39,6 +45,18 @@ def _persist_tokens(access_token: str, refresh_token: str) -> None:
     if dotenv_path:
         set_key(dotenv_path, "QBO_ACCESS_TOKEN", access_token)
         set_key(dotenv_path, "QBO_REFRESH_TOKEN", refresh_token)
+
+
+def _get_redirect_uri() -> str:
+    """Load and validate the OAuth redirect URI from the environment."""
+    redirect_uri = os.environ.get("QBO_REDIRECT_URI", _REDIRECT_URI)
+    if not redirect_uri:
+        _error("QBO_REDIRECT_URI must not be empty")
+
+    try:
+        return validate_redirect_uri(redirect_uri)
+    except (TypeError, ValueError) as exc:
+        _error(str(exc))
 
 
 def _make_client() -> QBOClient:
@@ -288,20 +306,35 @@ def auth() -> None:
 
     client_id = os.environ["QBO_CLIENT_ID"]
     client_secret = os.environ["QBO_CLIENT_SECRET"]
+    redirect_uri = _get_redirect_uri()
+    callback_path = urlparse(redirect_uri).path
+    assert callback_path, "validate_redirect_uri() must guarantee a callback path"
 
-    url, state = build_auth_url(client_id)
-    click.echo(f"Opening browser for authorization...\n{url}")
-    webbrowser.open(url)
-
-    click.echo(f"Waiting for callback on http://localhost:8484/callback ...")
+    url, state = build_auth_url(client_id, redirect_uri=redirect_uri)
+    click.echo(f"Open this URL to authorize QuickBooks:\n{url}")
     try:
-        code = run_callback_server(state)
+        browser_opened = webbrowser.open(url)
+    except webbrowser.Error:
+        browser_opened = False
+    if browser_opened:
+        click.echo("Opened your browser for authorization.")
+    else:
+        click.echo("Browser was not opened automatically. Use the URL above.")
+
+    click.echo(f"Waiting for callback on {redirect_uri} ...")
+    try:
+        code = run_callback_server(state, callback_path=callback_path)
     except RuntimeError as e:
         _error(str(e))
 
     click.echo("Exchanging authorization code for tokens...")
     try:
-        tokens = exchange_code(client_id, client_secret, code)
+        tokens = exchange_code(
+            client_id,
+            client_secret,
+            code,
+            redirect_uri=redirect_uri,
+        )
     except httpx.HTTPError as e:
         _error(f"Token exchange failed: {e}")
 

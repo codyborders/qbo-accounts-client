@@ -14,6 +14,7 @@ from qbo_accounts.oauth import (
     build_auth_url,
     exchange_code,
     run_callback_server,
+    validate_redirect_uri,
 )
 
 
@@ -57,6 +58,28 @@ class TestBuildAuthUrl:
         _url2, state2 = build_auth_url("cid")
         assert state1 != state2
 
+    def test_uses_custom_redirect_uri(self):
+        custom_redirect_uri = "https://mcp-vm.tail744e10.ts.net/callback"
+
+        url, _state = build_auth_url("cid", redirect_uri=custom_redirect_uri)
+
+        assert "redirect_uri=https%3A%2F%2Fmcp-vm.tail744e10.ts.net%2Fcallback" in url
+
+
+class TestValidateRedirectUri:
+    def test_accepts_https_redirect_uri(self):
+        redirect_uri = "https://mcp-vm.tail744e10.ts.net/callback"
+
+        result = validate_redirect_uri(redirect_uri)
+
+        assert result == redirect_uri
+
+    def test_rejects_query_string(self):
+        redirect_uri = "https://mcp-vm.tail744e10.ts.net/callback?bad=1"
+
+        with pytest.raises(ValueError, match="must not include a query string"):
+            validate_redirect_uri(redirect_uri)
+
 
 class TestExchangeCode:
     @patch("qbo_accounts.oauth.httpx.post")
@@ -78,6 +101,7 @@ class TestExchangeCode:
         call_kwargs = mock_post.call_args
         assert call_kwargs[1]["data"]["grant_type"] == "authorization_code"
         assert call_kwargs[1]["data"]["code"] == "auth_code_789"
+        assert call_kwargs[1]["data"]["redirect_uri"] == _REDIRECT_URI
 
     @patch("qbo_accounts.oauth.httpx.post")
     def test_sends_basic_auth_header(self, mock_post):
@@ -91,6 +115,26 @@ class TestExchangeCode:
         call_kwargs = mock_post.call_args
         expected_creds = base64.b64encode(b"mycid:mysecret").decode()
         assert call_kwargs[1]["headers"]["Authorization"] == f"Basic {expected_creds}"
+
+    @patch("qbo_accounts.oauth.httpx.post")
+    def test_uses_custom_redirect_uri(self, mock_post):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"access_token": "x", "refresh_token": "y"}
+        mock_response.raise_for_status = MagicMock()
+        mock_post.return_value = mock_response
+
+        exchange_code(
+            "mycid",
+            "mysecret",
+            "code",
+            redirect_uri="https://mcp-vm.tail744e10.ts.net/callback",
+        )
+
+        call_kwargs = mock_post.call_args
+        assert (
+            call_kwargs[1]["data"]["redirect_uri"]
+            == "https://mcp-vm.tail744e10.ts.net/callback"
+        )
 
     @patch("qbo_accounts.oauth.httpx.post")
     def test_raises_on_http_error(self, mock_post):
@@ -114,3 +158,7 @@ class TestRunCallbackServer:
         mock_server_cls.return_value = mock_server
         # The server is tested via integration; unit test just verifies setup
         assert callable(run_callback_server)
+
+    def test_rejects_callback_path_without_leading_slash(self):
+        with pytest.raises(ValueError, match="must start with '/'"):
+            run_callback_server("state-token", callback_path="callback")
