@@ -7,6 +7,7 @@ import json
 import os
 import sys
 import webbrowser
+from datetime import datetime
 from typing import Any, Iterator, NoReturn
 from urllib.parse import urlparse
 
@@ -41,7 +42,7 @@ _ALLOWED_HOSTS = frozenset({
 
 def _persist_tokens(access_token: str, refresh_token: str) -> None:
     """Write refreshed tokens back to the .env file."""
-    dotenv_path = find_dotenv()
+    dotenv_path = os.environ.get("QBO_ENV_FILE") or find_dotenv(usecwd=True)
     if dotenv_path:
         set_key(dotenv_path, "QBO_ACCESS_TOKEN", access_token)
         set_key(dotenv_path, "QBO_REFRESH_TOKEN", refresh_token)
@@ -203,6 +204,39 @@ def list_all(entity: str, where: str | None, order_by: str | None) -> None:
         resource = _get_resource(client, entity)
         _require_capability(resource, entity, "query_all")
         _output_stream(resource.query_all(where=where, order_by=order_by))
+
+
+@main.command()
+@click.argument("report_name", type=click.Choice(["aged-receivables"]))
+@click.option(
+    "--report-date",
+    required=True,
+    type=click.DateTime(formats=["%Y-%m-%d"]),
+    help="Report date in YYYY-MM-DD format.",
+)
+@click.option(
+    "--accounting-method",
+    default="Accrual",
+    show_default=True,
+    type=click.Choice(["Accrual", "Cash"]),
+)
+@click.option("--testing-migration", is_flag=True, help="Use Intuit's modern report response.")
+def report(
+    report_name: str,
+    report_date: datetime,
+    accounting_method: str,
+    testing_migration: bool,
+) -> None:
+    """Run a supported QuickBooks Online report."""
+    api_report_name = {"aged-receivables": "AgedReceivables"}[report_name]
+    with _make_client() as client:
+        result = client.reports.run(
+            api_report_name,
+            report_date=report_date.date(),
+            accounting_method=accounting_method,
+            testing_migration=testing_migration,
+        )
+        _output(result)
 
 
 @main.command()

@@ -10,7 +10,7 @@ import pytest
 from click.testing import CliRunner
 from pydantic import BaseModel
 
-from qbo_accounts.cli import main, _normalize_entity, _serialize
+from qbo_accounts.cli import _normalize_entity, _persist_tokens, _serialize, main
 from qbo_accounts.client import _RESOURCE_REGISTRY
 from qbo_accounts.models.base import GenericQueryResponse
 from qbo_accounts.resources.base import (
@@ -368,6 +368,36 @@ class TestCompanyInfoCommand:
         assert data["CompanyName"] == "Test Co"
 
 
+class TestReportCommand:
+    def test_aged_receivables_report(self, runner, mock_client):
+        mock_client.reports.run.return_value = {
+            "Header": {"ReportName": "AgedReceivables"},
+            "Rows": {"Row": []},
+        }
+
+        result = runner.invoke(
+            main,
+            [
+                "report",
+                "aged-receivables",
+                "--report-date",
+                "2026-07-17",
+                "--accounting-method",
+                "Accrual",
+                "--testing-migration",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert json.loads(result.output)["Header"]["ReportName"] == "AgedReceivables"
+        mock_client.reports.run.assert_called_once()
+        call = mock_client.reports.run.call_args
+        assert call.args == ("AgedReceivables",)
+        assert call.kwargs["report_date"].isoformat() == "2026-07-17"
+        assert call.kwargs["accounting_method"] == "Accrual"
+        assert call.kwargs["testing_migration"] is True
+
+
 class TestParseJsonValidation:
     """Q1: _parse_json should reject valid JSON that isn't a dict."""
 
@@ -417,6 +447,26 @@ class TestOutputStreamFormatting:
         assert result.exit_code == 0
         lines = result.output.strip().split("\n")
         assert not any(line.strip() == "," for line in lines)
+
+
+class TestTokenPersistence:
+    def test_uses_explicit_environment_file(self, tmp_path):
+        environment_file = tmp_path / ".env"
+        with (
+            patch.dict(
+                "os.environ",
+                {"QBO_ENV_FILE": str(environment_file)},
+                clear=True,
+            ),
+            patch("qbo_accounts.cli.find_dotenv", return_value="/wrong/.env"),
+            patch("qbo_accounts.cli.set_key") as set_key,
+        ):
+            _persist_tokens("access-token", "refresh-token")
+
+        assert [call.args for call in set_key.call_args_list] == [
+            (str(environment_file), "QBO_ACCESS_TOKEN", "access-token"),
+            (str(environment_file), "QBO_REFRESH_TOKEN", "refresh-token"),
+        ]
 
 
 class TestMakeClientTokenRefresh:

@@ -70,7 +70,7 @@ class CompanyInfoResource(_SystemResourceBase):
     ENTITY_KEY = "CompanyInfo"
 
     def read(self) -> CompanyInfo:
-        path = self._client._build_path("companyinfo")
+        path = self._client._build_path("companyinfo", self._client.realm_id)
         resp = self._client.request("GET", path)
         return CompanyInfo.model_validate(resp[self.ENTITY_KEY])
 

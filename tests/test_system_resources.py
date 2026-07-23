@@ -30,9 +30,9 @@ class TestBudgetsResource:
 
 
 class TestCompanyInfoResource:
-    def test_read_uses_singleton_url(self, client, httpx_mock):
-        """CompanyInfo.read() should use /companyinfo without entity ID suffix."""
-        url = f"{BASE_URL}/v3/company/{REALM_ID}/companyinfo"
+    def test_read_uses_realm_id_url(self, client, httpx_mock):
+        """CompanyInfo.read() should address the configured company explicitly."""
+        url = f"{BASE_URL}/v3/company/{REALM_ID}/companyinfo/{REALM_ID}"
         httpx_mock.add_response(
             url=url,
             json={"CompanyInfo": {"Id": REALM_ID, "SyncToken": "0", "CompanyName": "Test Co"}},

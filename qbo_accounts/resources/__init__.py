@@ -16,6 +16,7 @@ from .namelist import (
     TermsResource,
     VendorsResource,
 )
+from .reports import ReportsResource
 from .system import (
     BudgetsResource,
     CompanyInfoResource,
@@ -70,6 +71,7 @@ __all__ = [
     "PurchaseOrdersResource",
     "PurchasesResource",
     "RefundReceiptsResource",
+    "ReportsResource",
     "SalesReceiptsResource",
     "TaxAgenciesResource",
     "TaxCodesResource",

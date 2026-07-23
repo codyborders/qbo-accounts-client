@@ -36,6 +36,17 @@ class TestClientInit:
         assert client.accounts is accounts
 
 
+class TestClientRequestHeaders:
+    def test_requests_identity_encoding(self, client: QBOClient, httpx_mock: HTTPXMock):
+        httpx_mock.add_response(status_code=200, json={"Account": {"Id": "1"}})
+
+        client.request("GET", f"/v3/company/{REALM_ID}/account/1")
+
+        request = httpx_mock.get_request()
+        assert request is not None
+        assert request.headers["accept-encoding"] == "identity"
+
+
 class TestClientErrorHandling:
     def test_401_raises_authentication_error(
         self, client: QBOClient, httpx_mock: HTTPXMock

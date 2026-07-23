@@ -112,6 +112,16 @@ qbo read entitlements
 # Shortcut for company info
 qbo company-info
 
+# Run the accrual-basis A/R aging report for a fixed date
+qbo report aged-receivables \
+  --report-date 2026-07-22 \
+  --accounting-method Accrual
+
+# Test Intuit's modernized Reports API response before the 2026 migration
+qbo report aged-receivables \
+  --report-date 2026-07-22 \
+  --testing-migration
+
 # Query with filters (single page, default 100 results)
 qbo query customers --where "DisplayName LIKE '%John%'"
 qbo query invoices --where "Balance > '0'" --order-by "MetaData.CreateTime DESC"
@@ -162,6 +172,8 @@ Not all operations are available on every entity:
 | `deactivate` | Yes | No  | No  | No |
 | `void`       | No  | No  | Yes | No |
 
+The `report` command currently supports the read-only `aged-receivables` report. Report dates must use `YYYY-MM-DD`; the accounting method defaults to `Accrual`.
+
 ### Error handling
 
 Errors are written as JSON to stderr with a non-zero exit code:
@@ -204,6 +216,7 @@ Environment variables:
 | `QBO_CLIENT_ID` | OAuth2 client ID |
 | `QBO_CLIENT_SECRET` | OAuth2 client secret |
 | `QBO_REDIRECT_URI` | OAuth2 redirect URI. Defaults to `http://localhost:8484/callback` for local development. Set this to your public HTTPS callback in production. |
+| `QBO_ENV_FILE` | Explicit `.env` path for persisting rotated OAuth tokens. Its parent directory must be writable for atomic replacement. Recommended for installed CLI deployments. |
 
 ## Development
 

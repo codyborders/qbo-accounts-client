@@ -57,6 +57,8 @@ _RESOURCE_REGISTRY: dict[str, tuple[str, str]] = {
     "exchange_rates": ("qbo_accounts.resources.system", "ExchangeRatesResource"),
     "preferences": ("qbo_accounts.resources.system", "PreferencesResource"),
     "tax_service": ("qbo_accounts.resources.system", "TaxServiceResource"),
+    # Reports
+    "reports": ("qbo_accounts.resources.reports", "ReportsResource"),
 }
 
 if TYPE_CHECKING:
@@ -67,6 +69,7 @@ if TYPE_CHECKING:
         JournalCodesResource, PaymentMethodsResource, TaxAgenciesResource,
         TaxCodesResource, TaxRatesResource, TermsResource, VendorsResource,
     )
+    from .resources.reports import ReportsResource
     from .resources.system import (
         BudgetsResource, CompanyInfoResource, EntitlementsResource,
         ExchangeRatesResource, PreferencesResource, TaxServiceResource,
@@ -129,6 +132,7 @@ class QBOClient:
         exchange_rates: ExchangeRatesResource
         preferences: PreferencesResource
         tax_service: TaxServiceResource
+        reports: ReportsResource
 
     def __init__(
         self,
@@ -212,6 +216,7 @@ class QBOClient:
         """
         headers = {
             "Accept": "application/json",
+            "Accept-Encoding": "identity",
             "Content-Type": "application/json",
         }
 
