@@ -117,6 +117,14 @@ qbo report aged-receivables \
   --report-date 2026-07-22 \
   --accounting-method Accrual
 
+# Run a monthly cash-basis Profit and Loss report for a fixed period
+qbo report profit-and-loss \
+  --start-date 2025-08-01 \
+  --end-date 2026-07-22 \
+  --accounting-method Cash \
+  --summarize-column-by Month \
+  --testing-migration
+
 # Test Intuit's modernized Reports API response before the 2026 migration
 qbo report aged-receivables \
   --report-date 2026-07-22 \
@@ -172,7 +180,7 @@ Not all operations are available on every entity:
 | `deactivate` | Yes | No  | No  | No |
 | `void`       | No  | No  | Yes | No |
 
-The `report` command currently supports the read-only `aged-receivables` report. Report dates must use `YYYY-MM-DD`; the accounting method defaults to `Accrual`.
+The `report` command supports read-only `aged-receivables` and `profit-and-loss` reports. A/R aging uses `--report-date`; Profit and Loss uses `--start-date` and `--end-date`. Dates must use `YYYY-MM-DD`, and the accounting method defaults to `Accrual` unless explicitly set to `Cash`.
 
 ### Error handling
 

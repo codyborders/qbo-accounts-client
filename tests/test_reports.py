@@ -34,6 +34,44 @@ class TestReportsResource:
         assert request.url.params["accounting_method"] == "Accrual"
         assert request.url.params["testing_migration"] == "true"
 
+    def test_run_cash_basis_profit_and_loss_by_month(self, client, httpx_mock):
+        report = {
+            "Header": {
+                "ReportName": "ProfitAndLoss",
+                "ReportBasis": "Cash",
+                "StartPeriod": "2025-08-01",
+                "EndPeriod": "2026-07-22",
+                "SummarizeColumnsBy": "Month",
+            },
+            "Columns": {"Column": []},
+            "Rows": {"Row": []},
+        }
+        url = (
+            f"{BASE_URL}/v3/company/{REALM_ID}/reports/ProfitAndLoss"
+            "?start_date=2025-08-01&end_date=2026-07-22"
+            "&accounting_method=Cash&summarize_column_by=Month"
+            "&testing_migration=true"
+        )
+        httpx_mock.add_response(url=url, json=report)
+
+        result = client.reports.run(
+            "ProfitAndLoss",
+            start_date=date(2025, 8, 1),
+            end_date=date(2026, 7, 22),
+            accounting_method="Cash",
+            summarize_column_by="Month",
+            testing_migration=True,
+        )
+
+        assert result == report
+        request = httpx_mock.get_request()
+        assert request is not None
+        assert request.url.params["start_date"] == "2025-08-01"
+        assert request.url.params["end_date"] == "2026-07-22"
+        assert request.url.params["accounting_method"] == "Cash"
+        assert request.url.params["summarize_column_by"] == "Month"
+        assert request.url.params["testing_migration"] == "true"
+
     def test_run_rejects_unsupported_report_before_request(self, client, httpx_mock):
         try:
             client.reports.run("NotAReport")

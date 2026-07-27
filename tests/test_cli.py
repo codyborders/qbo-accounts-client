@@ -397,6 +397,44 @@ class TestReportCommand:
         assert call.kwargs["accounting_method"] == "Accrual"
         assert call.kwargs["testing_migration"] is True
 
+    def test_cash_basis_profit_and_loss_report(self, runner, mock_client):
+        mock_client.reports.run.return_value = {
+            "Header": {
+                "ReportName": "ProfitAndLoss",
+                "ReportBasis": "Cash",
+                "SummarizeColumnsBy": "Month",
+            },
+            "Rows": {"Row": []},
+        }
+
+        result = runner.invoke(
+            main,
+            [
+                "report",
+                "profit-and-loss",
+                "--start-date",
+                "2025-08-01",
+                "--end-date",
+                "2026-07-22",
+                "--accounting-method",
+                "Cash",
+                "--summarize-column-by",
+                "Month",
+                "--testing-migration",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert json.loads(result.output)["Header"]["ReportName"] == "ProfitAndLoss"
+        mock_client.reports.run.assert_called_once()
+        call = mock_client.reports.run.call_args
+        assert call.args == ("ProfitAndLoss",)
+        assert call.kwargs["start_date"].isoformat() == "2025-08-01"
+        assert call.kwargs["end_date"].isoformat() == "2026-07-22"
+        assert call.kwargs["accounting_method"] == "Cash"
+        assert call.kwargs["summarize_column_by"] == "Month"
+        assert call.kwargs["testing_migration"] is True
+
 
 class TestParseJsonValidation:
     """Q1: _parse_json should reject valid JSON that isn't a dict."""

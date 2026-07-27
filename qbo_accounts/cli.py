@@ -207,12 +207,24 @@ def list_all(entity: str, where: str | None, order_by: str | None) -> None:
 
 
 @main.command()
-@click.argument("report_name", type=click.Choice(["aged-receivables"]))
+@click.argument(
+    "report_name",
+    type=click.Choice(["aged-receivables", "profit-and-loss"]),
+)
 @click.option(
     "--report-date",
-    required=True,
     type=click.DateTime(formats=["%Y-%m-%d"]),
-    help="Report date in YYYY-MM-DD format.",
+    help="Single report date in YYYY-MM-DD format.",
+)
+@click.option(
+    "--start-date",
+    type=click.DateTime(formats=["%Y-%m-%d"]),
+    help="Report period start in YYYY-MM-DD format.",
+)
+@click.option(
+    "--end-date",
+    type=click.DateTime(formats=["%Y-%m-%d"]),
+    help="Report period end in YYYY-MM-DD format.",
 )
 @click.option(
     "--accounting-method",
@@ -220,20 +232,45 @@ def list_all(entity: str, where: str | None, order_by: str | None) -> None:
     show_default=True,
     type=click.Choice(["Accrual", "Cash"]),
 )
+@click.option(
+    "--summarize-column-by",
+    type=click.Choice(["Total", "Month"]),
+    help="Group report values into total or monthly columns.",
+)
 @click.option("--testing-migration", is_flag=True, help="Use Intuit's modern report response.")
 def report(
     report_name: str,
-    report_date: datetime,
+    report_date: datetime | None,
+    start_date: datetime | None,
+    end_date: datetime | None,
     accounting_method: str,
+    summarize_column_by: str | None,
     testing_migration: bool,
 ) -> None:
     """Run a supported QuickBooks Online report."""
-    api_report_name = {"aged-receivables": "AgedReceivables"}[report_name]
+    if report_name == "aged-receivables":
+        if report_date is None:
+            _error("aged-receivables requires --report-date")
+        if start_date is not None or end_date is not None:
+            _error("aged-receivables does not accept a date range")
+    else:
+        if report_date is not None:
+            _error("profit-and-loss does not accept --report-date")
+        if start_date is None or end_date is None:
+            _error("profit-and-loss requires --start-date and --end-date")
+
+    api_report_name = {
+        "aged-receivables": "AgedReceivables",
+        "profit-and-loss": "ProfitAndLoss",
+    }[report_name]
     with _make_client() as client:
         result = client.reports.run(
             api_report_name,
-            report_date=report_date.date(),
+            report_date=report_date.date() if report_date is not None else None,
+            start_date=start_date.date() if start_date is not None else None,
+            end_date=end_date.date() if end_date is not None else None,
             accounting_method=accounting_method,
+            summarize_column_by=summarize_column_by,
             testing_migration=testing_migration,
         )
         _output(result)
