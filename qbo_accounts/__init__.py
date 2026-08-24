@@ -52,7 +52,6 @@ from .models import (
     Transfer, TransferCreate, TransferUpdate,
     VendorCredit, VendorCreditCreate, VendorCreditUpdate,
     # System
-    Budget,
     CompanyInfo, CompanyInfoUpdate,
     Entitlements,
     ExchangeRate, ExchangeRateUpdate,
@@ -155,7 +154,6 @@ __all__ = [
     "Transfer", "TransferCreate", "TransferUpdate",
     "VendorCredit", "VendorCreditCreate", "VendorCreditUpdate",
     # System
-    "Budget",
     "CompanyInfo", "CompanyInfoUpdate",
     "Entitlements",
     "ExchangeRate", "ExchangeRateUpdate",

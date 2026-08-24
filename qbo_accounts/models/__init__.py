@@ -18,7 +18,6 @@ from .namelist import (
     Vendor, VendorCreate, VendorUpdate,
 )
 from .system import (
-    Budget,
     CompanyInfo, CompanyInfoUpdate,
     Entitlements,
     ExchangeRate, ExchangeRateUpdate,
@@ -85,7 +84,6 @@ __all__ = [
     "Transfer", "TransferCreate", "TransferUpdate",
     "VendorCredit", "VendorCreditCreate", "VendorCreditUpdate",
     # System
-    "Budget",
     "CompanyInfo", "CompanyInfoUpdate",
     "Entitlements",
     "ExchangeRate", "ExchangeRateUpdate",
