@@ -9,24 +9,12 @@ from pydantic import Field
 from .base import QBOEntity, QBOInputModel
 
 __all__ = [
-    "Budget",
     "CompanyInfo", "CompanyInfoUpdate",
     "Entitlements",
     "ExchangeRate", "ExchangeRateUpdate",
     "Preferences", "PreferencesUpdate",
     "TaxServiceCreate",
 ]
-
-
-# ── Budget (query only) ───────────────────────────────────────────────────
-
-class Budget(QBOEntity):
-    name: str | None = Field(default=None, alias="Name")
-    start_date: str | None = Field(default=None, alias="StartDate")
-    end_date: str | None = Field(default=None, alias="EndDate")
-    budget_type: str | None = Field(default=None, alias="BudgetType")
-    active: bool | None = Field(default=None, alias="Active")
-    budget_entry_type: str | None = Field(default=None, alias="BudgetEntryType")
 
 
 # ── CompanyInfo (read/update) ─────────────────────────────────────────────
